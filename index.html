@@ -16,13 +16,11 @@
             --btn-text: var(--tg-theme-button-text-color, #ffffff);
             --bar-bg: #f5f5f5;
         }
-
         body.dark-theme {
             --bg-color: #1a1a1a;
             --text-color: #ffffff;
             --bar-bg: #333333;
         }
-
         html, body {
             margin: 0; padding: 0;
             width: 100%; height: 100dvh;
@@ -31,46 +29,27 @@
             color: var(--text-color);
             font-family: -apple-system, system-ui, sans-serif;
         }
-
         body { display: flex; flex-direction: column; }
-
         .toolbar {
             background-color: var(--bar-bg);
             padding: 10px;
             padding-top: calc(10px + var(--tg-safe-area-inset-top, 0px));
-            display: flex;
-            gap: 8px;
+            display: flex; gap: 8px;
             border-bottom: 1px solid rgba(0,0,0,0.1);
-            z-index: 10;
-            flex-wrap: wrap; /* Чтобы кнопки переносились на маленьких экранах */
+            z-index: 10; flex-wrap: wrap;
         }
-
         button, select {
-            font-size: 13px;
-            padding: 8px 10px;
-            border-radius: 8px;
-            border: none;
-            background-color: var(--btn-color);
-            color: var(--btn-text);
-            font-weight: bold;
-            cursor: pointer;
+            font-size: 13px; padding: 8px 10px; border-radius: 8px;
+            border: none; background-color: var(--btn-color);
+            color: var(--btn-text); font-weight: bold; cursor: pointer;
         }
-
         #trackList, #langSelector {
             background-color: var(--bg-color);
             color: var(--text-color);
             border: 1px solid var(--btn-color);
         }
-
-        #tab-view {
-            flex: 1;
-            overflow: auto;
-            background-color: var(--bg-color);
-            -webkit-overflow-scrolling: touch;
-        }
-
+        #tab-view { flex: 1; overflow: auto; background-color: var(--bg-color); }
         #fileInput { display: none; }
-
         #loading {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.7); color: white;
@@ -81,21 +60,21 @@
 </head>
 <body>
 
-    <div id="loading">Загрузка...</div>
+    <!-- Используем коды вместо букв для стабильности -->
+    <div id="loading">&#1047;&#1072;&#1075;&#1088;&#1091;&#1079;&#1082;&#1072;...</div>
 
     <div class="toolbar">
-        <button id="openBtn">📁 Открыть</button>
-        <button id="playBtn">▶ Играть</button>
-        <button id="themeBtn">🌓 Тема</button>
+        <button id="openBtn">📁 &#1054;&#1090;&#1082;&#1088;&#1099;&#1090;&#1100;</button>
+        <button id="playBtn">▶ &#1048;&#1075;&#1088;&#1072;&#1090;&#1100;</button>
+        <button id="themeBtn">🌓 &#1058;&#1077;&#1084;&#1072;</button>
         
-        <!-- Переключатель языка -->
         <select id="langSelector">
             <option value="ru">RU</option>
             <option value="en">EN</option>
         </select>
 
         <select id="trackList">
-            <option data-lang="noFile">Нет файла</option>
+            <option data-lang="noFile">&#1053;&#1077;&#1090; &#1092;&#1072;&#1081;&#1083;&#1072;</option>
         </select>
     </div>
 
@@ -103,28 +82,28 @@
         <div id="alphaTab"></div>
     </div>
 
-    <input type="file" id="fileInput" accept=".gp,.gp3,.gp4,.gp5,.gpx">
+    <input type="file" id="fileInput" accept=".gp,.gp3,.gp4,.gp5,.gpx" style="display:none">
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand(); 
 
-        // Словарь переводов
+        // Переводы в формате Unicode Escapes (гарантирует отсутствие знаков вопроса)
         const translations = {
             ru: {
-                open: "📁 Открыть",
-                play: "▶ Играть",
-                pause: "⏸ Пауза",
-                theme: "🌓 Тема",
-                loading: "Загрузка...",
-                noFile: "Нет файла"
+                open: "\uD83D\uDCC1 \u041E\u0442\u043A\u0440\u044B\u0442\u044C",
+                play: "\u25B6 \u0418\u0433\u0440\u0430\u0442\u044C",
+                pause: "\u23F8 \u041F\u0430\u0443\u0437\u0430",
+                theme: "\u25D1 \u0422\u0435\u043C\u0430",
+                loading: "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430...",
+                noFile: "\u041D\u0435\u0442 \u0444\u0430\u0439\u043B\u0430"
             },
             en: {
-                open: "📁 Open",
-                play: "▶ Play",
-                pause: "⏸ Pause",
-                theme: "🌓 Theme",
+                open: "\uD83D\uDCC1 Open",
+                play: "\u25B6 Play",
+                pause: "\u23F8 Pause",
+                theme: "\u25D1 Theme",
                 loading: "Loading...",
                 noFile: "No file"
             }
@@ -138,19 +117,16 @@
             document.getElementById('themeBtn').innerText = t.theme;
             document.getElementById('loading').innerText = t.loading;
             
-            // Кнопка плей/пауза (зависит от состояния плеера)
             if (api && api.playerState === 1) {
                 document.getElementById('playBtn').innerText = t.pause;
             } else {
                 document.getElementById('playBtn').innerText = t.play;
             }
 
-            // Текст "Нет файла" в списке дорожек
             const noFileOpt = document.querySelector('option[data-lang="noFile"]');
             if (noFileOpt) noFileOpt.innerText = t.noFile;
         }
 
-        // Инициализация AlphaTab
         const el = document.querySelector('#alphaTab');
         const api = new alphaTab.AlphaTabApi(el, {
             player: {
@@ -159,7 +135,6 @@
             }
         });
 
-        // События интерфейса
         document.getElementById('langSelector').onchange = (e) => {
             currentLang = e.target.value;
             updateInterface();
@@ -204,12 +179,10 @@
         document.getElementById('playBtn').onclick = () => api.playPause();
 
         api.playerStateChanged.on(() => {
-            updateInterface(); // Обновляем текст кнопки при смене состояния плеера
+            updateInterface();
         });
 
         window.addEventListener('resize', () => api.render());
-
-        // Устанавливаем язык при старте
         updateInterface();
     </script>
 </body>
