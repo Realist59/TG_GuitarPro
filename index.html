@@ -1,96 +1,46 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GP Player Pro</title>
-    
+    <title>GP Player</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.3.0/dist/alphaTab.js"></script>
-
     <style>
-        :root {
-            --bg-color: #ffffff;
-            --text-color: #222222;
-            --btn-color: var(--tg-theme-button-color, #2481cc);
-            --btn-text: var(--tg-theme-button-text-color, #ffffff);
-            --bar-bg: #f5f5f5;
-        }
-        body.dark-theme {
-            --bg-color: #1a1a1a;
-            --text-color: #ffffff;
-            --bar-bg: #333333;
-        }
-        html, body {
-            margin: 0; padding: 0;
-            width: 100%; height: 100dvh;
-            overflow: hidden;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: -apple-system, system-ui, sans-serif;
-        }
+        :root { --bg: #fff; --txt: #222; --btn: var(--tg-theme-button-color, #2481cc); --btn-txt: var(--tg-theme-button-text-color, #fff); --bar: #f5f5f5; }
+        body.dark { --bg: #1a1a1a; --txt: #fff; --bar: #333; }
+        html, body { margin: 0; padding: 0; width: 100%; height: 100dvh; overflow: hidden; background: var(--bg); color: var(--txt); font-family: sans-serif; }
         body { display: flex; flex-direction: column; }
-        .toolbar {
-            background-color: var(--bar-bg);
-            padding: 10px;
-            padding-top: calc(10px + var(--tg-safe-area-inset-top, 0px));
-            display: flex; gap: 8px;
-            border-bottom: 1px solid rgba(0,0,0,0.1);
-            z-index: 10; flex-wrap: wrap;
-        }
-        button, select {
-            font-size: 13px; padding: 8px 10px; border-radius: 8px;
-            border: none; background-color: var(--btn-color);
-            color: var(--btn-text); font-weight: bold; cursor: pointer;
-        }
-        #trackList, #langSelector {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            border: 1px solid var(--btn-color);
-        }
-        #tab-view { flex: 1; overflow: auto; background-color: var(--bg-color); }
+        .toolbar { background: var(--bar); padding: 10px; padding-top: calc(10px + var(--tg-safe-area-inset-top, 0px)); display: flex; gap: 8px; border-bottom: 1px solid rgba(0,0,0,0.1); z-index: 10; flex-wrap: wrap; }
+        button, select { font-size: 13px; padding: 8px 10px; border-radius: 8px; border: none; background: var(--btn); color: var(--btn-txt); font-weight: bold; cursor: pointer; }
+        #trackList, #langSelector { background: var(--bg); color: var(--txt); border: 1px solid var(--btn); }
+        #tab-view { flex: 1; overflow: auto; background: var(--bg); }
         #fileInput { display: none; }
-        #loading {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.7); color: white;
-            display: none; align-items: center; justify-content: center;
-            z-index: 1000; font-weight: bold;
-        }
+        #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); color: #fff; display: none; align-items: center; justify-content: center; z-index: 1000; font-weight: bold; }
     </style>
 </head>
 <body>
-
-    <!-- Используем коды вместо букв для стабильности -->
-    <div id="loading">&#1047;&#1072;&#1075;&#1088;&#1091;&#1079;&#1082;&#1072;...</div>
-
+    <div id="loading">...</div>
     <div class="toolbar">
-        <button id="openBtn">📁 &#1054;&#1090;&#1082;&#1088;&#1099;&#1090;&#1100;</button>
-        <button id="playBtn">▶ &#1048;&#1075;&#1088;&#1072;&#1090;&#1100;</button>
-        <button id="themeBtn">🌓 &#1058;&#1077;&#1084;&#1072;</button>
-        
+        <button id="openBtn">📁</button>
+        <button id="playBtn">▶</button>
+        <button id="themeBtn">🌓</button>
         <select id="langSelector">
             <option value="ru">RU</option>
             <option value="en">EN</option>
         </select>
-
-        <select id="trackList">
-            <option data-lang="noFile">&#1053;&#1077;&#1090; &#1092;&#1072;&#1081;&#1083;&#1072;</option>
-        </select>
+        <select id="trackList"><option value="0">...</option></select>
     </div>
-
-    <div id="tab-view">
-        <div id="alphaTab"></div>
-    </div>
-
+    <div id="tab-view"><div id="alphaTab"></div></div>
     <input type="file" id="fileInput" accept=".gp,.gp3,.gp4,.gp5,.gpx" style="display:none">
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
-        tg.expand(); 
+        tg.expand();
 
-        // Переводы в формате Unicode Escapes (гарантирует отсутствие знаков вопроса)
-        const translations = {
+        // Russian text in escaped Unicode format (Failsafe)
+        const labels = {
             ru: {
                 open: "\uD83D\uDCC1 \u041E\u0442\u043A\u0440\u044B\u0442\u044C",
                 play: "\u25B6 \u0418\u0433\u0440\u0430\u0442\u044C",
@@ -100,90 +50,60 @@
                 noFile: "\u041D\u0435\u0442 \u0444\u0430\u0439\u043B\u0430"
             },
             en: {
-                open: "\uD83D\uDCC1 Open",
-                play: "\u25B6 Play",
-                pause: "\u23F8 Pause",
-                theme: "\u25D1 Theme",
+                open: "📁 Open",
+                play: "▶ Play",
+                pause: "⏸ Pause",
+                theme: "🌓 Theme",
                 loading: "Loading...",
                 noFile: "No file"
             }
         };
 
-        let currentLang = 'ru';
-
-        function updateInterface() {
-            const t = translations[currentLang];
-            document.getElementById('openBtn').innerText = t.open;
-            document.getElementById('themeBtn').innerText = t.theme;
-            document.getElementById('loading').innerText = t.loading;
-            
-            if (api && api.playerState === 1) {
-                document.getElementById('playBtn').innerText = t.pause;
-            } else {
-                document.getElementById('playBtn').innerText = t.play;
-            }
-
-            const noFileOpt = document.querySelector('option[data-lang="noFile"]');
-            if (noFileOpt) noFileOpt.innerText = t.noFile;
-        }
-
+        let curLang = 'ru';
         const el = document.querySelector('#alphaTab');
         const api = new alphaTab.AlphaTabApi(el, {
-            player: {
-                enablePlayer: true,
-                soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.3.0/dist/soundfonts/sonivox.sf2'
+            player: { enablePlayer: true, soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.3.0/dist/soundfonts/sonivox.sf2' }
+        });
+
+        function ui() {
+            const l = labels[curLang];
+            document.getElementById('openBtn').innerText = l.open;
+            document.getElementById('themeBtn').innerText = l.theme;
+            document.getElementById('loading').innerText = l.loading;
+            document.getElementById('playBtn').innerText = (api && api.playerState === 1) ? l.pause : l.play;
+            if(document.getElementById('trackList').options[0] && !api.score) {
+                document.getElementById('trackList').options[0].innerText = l.noFile;
             }
-        });
+        }
 
-        document.getElementById('langSelector').onchange = (e) => {
-            currentLang = e.target.value;
-            updateInterface();
-        };
-
+        document.getElementById('langSelector').onchange = (e) => { curLang = e.target.value; ui(); };
         document.getElementById('openBtn').onclick = () => document.getElementById('fileInput').click();
-
         document.getElementById('fileInput').onchange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+            const f = e.target.files[0]; if (!f) return;
             document.getElementById('loading').style.display = 'flex';
-            const reader = new FileReader();
-            reader.onload = (res) => {
-                api.load(new Uint8Array(res.target.result));
-            };
-            reader.readAsArrayBuffer(file);
+            const r = new FileReader(); r.onload = (res) => api.load(new Uint8Array(res.target.result));
+            r.readAsArrayBuffer(f);
         };
 
-        let isDark = false;
+        let dk = false;
         document.getElementById('themeBtn').onclick = () => {
-            isDark = !isDark;
-            document.body.classList.toggle('dark-theme', isDark);
-            api.settings.display.resources.mainColor = isDark ? '#ffffff' : '#000000';
-            api.settings.display.staveRenderingConfig.staveColor = isDark ? '#ffffff' : '#000000';
-            api.updateSettings();
-            api.render();
+            dk = !dk; document.body.classList.toggle('dark', dk);
+            api.settings.display.resources.mainColor = dk ? '#ffffff' : '#000000';
+            api.settings.display.staveRenderingConfig.staveColor = dk ? '#ffffff' : '#000000';
+            api.updateSettings(); api.render();
         };
 
-        api.scoreLoaded.on((score) => {
+        api.scoreLoaded.on((s) => {
             document.getElementById('loading').style.display = 'none';
-            const trackList = document.getElementById('trackList');
-            trackList.innerHTML = '';
-            score.tracks.forEach((track, index) => {
-                const opt = document.createElement('option');
-                opt.value = index;
-                opt.innerText = track.name;
-                trackList.appendChild(opt);
-            });
-            api.renderTracks([score.tracks[0]]);
+            const tl = document.getElementById('trackList'); tl.innerHTML = '';
+            s.tracks.forEach((t, i) => { const o = document.createElement('option'); o.value = i; o.innerText = t.name; tl.appendChild(o); });
+            api.renderTracks([s.tracks[0]]);
         });
 
-        document.getElementById('playBtn').onclick = () => api.playPause();
-
-        api.playerStateChanged.on(() => {
-            updateInterface();
-        });
-
+        document.getElementById('btnPlay') || (document.getElementById('playBtn').onclick = () => api.playPause());
+        api.playerStateChanged.on(() => ui());
         window.addEventListener('resize', () => api.render());
-        updateInterface();
+        ui();
     </script>
 </body>
 </html>
