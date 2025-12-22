@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Guitar Pro Player</title>
+    
+    <!-- Telegram Web App Script -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- AlphaTab Engine -->
+    <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.3.0/dist/alphaTab.js"></script>
+
+    <style>
+        :root {
+            --tg-bg: var(--tg-theme-bg-color, #ffffff);
+            --tg-text: var(--tg-theme-text-color, #222222);
+            --tg-hint: var(--tg-theme-hint-color, #aaaaaa);
+            --tg-button: var(--tg-theme-button-color, #2481cc);
+            --tg-button-text: var(--tg-theme-button-text-color, #ffffff);
+            --tg-secondary: var(--tg-theme-secondary-bg-color, #f0f0f0);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--tg-bg);
+            color: var(--tg-text);
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            background: var(--tg-secondary);
+            padding: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        button, select {
+            font-size: 14px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: none;
+            background: var(--tg-button);
+            color: var(--tg-button-text);
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        button.secondary {
+            background: var(--tg-hint);
+            color: #fff;
+        }
+
+        button.active {
+            background: #e74c3c !important;
+        }
+
+        select {
+            flex: 1;
+            min-width: 120px;
+            background: var(--tg-bg);
+            color: var(--tg-text);
+            border: 1px solid var(--tg-hint);
+        }
+
+        /* Main Content */
+        #alphaTab-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background: #fff; /* Sheet music usually on white */
+        }
+
+        #loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--tg-bg);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--tg-hint);
+            border-top: 4px solid var(--tg-button);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status-bar {
+            font-size: 11px;
+            padding: 4px 10px;
+            background: var(--tg-secondary);
+            color: var(--tg-hint);
+            text-align: center;
+            border-top: 1px solid rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div id="loading-text">Loading sounds...</div>
+    </div>
+
+    <div class="toolbar">
+        <!-- Open File -->
+        <button onclick="document.getElementById('fileInput').click()">📁 Open</button>
+        
+        <!-- Play/Stop -->
+        <button id="btnPlay">▶ Play</button>
+        <button id="btnStop">⏹</button>
+        
+        <!-- Metronome -->
+        <button id="btnMetronome" class="secondary">🔔 Metronome: Off</button>
+        
+        <!-- Notation Toggle -->
+        <button id="btnLayout" class="secondary">Notes: Off</button>
+
+        <!-- Track Selector -->
+        <select id="trackSelector">
+            <option>No file loaded</option>
+        </select>
+    </div>
+
+    <div id="alphaTab-container">
+        <div id="alphaTab"></div>
+    </div>
+
+    <div class="status-bar" id="statusBar">Ready. Open a .gp3, .gp4, .gp5 or .gpx file.</div>
+
+    <input type="file" id="fileInput" accept=".gp,.gp3,.gp4,.gp5,.gpx" style="display:none">
+
+    <script>
+        // 1. Initialize Telegram
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+
+        // 2. DOM Elements
+        const el = document.querySelector('#alphaTab');
+        const trackSelector = document.querySelector('#trackSelector');
+        const btnPlay = document.querySelector('#btnPlay');
+        const btnStop = document.querySelector('#btnStop');
+        const btnMetronome = document.querySelector('#btnMetronome');
+        const btnLayout = document.querySelector('#btnLayout');
+        const statusBar = document.querySelector('#statusBar');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const fileInput = document.getElementById('fileInput');
+
+        // 3. Initialize AlphaTab API
+        const api = new alphaTab.AlphaTabApi(el, {
+            player: {
+                enablePlayer: true,
+                enableMetronome: false,
+                soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.3.0/dist/soundfonts/sonivox.sf2'
+            },
+            display: {
+                layoutMode: 'page',
+                staveRenderingConfig: {
+                    visualization: 'tab' // Only tabs by default
+                }
+            }
+        });
+
+        // 4. File Loading Logic
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            loadingOverlay.style.display = 'flex';
+            document.getElementById('loading-text').innerText = "Parsing " + file.name + "...";
+
+            const reader = new FileReader();
+            reader.onload = (res) => {
+                api.load(new Uint8Array(res.target.result));
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        // 5. When Music is Loaded
+        api.scoreLoaded.on((score) => {
+            loadingOverlay.style.display = 'none';
+            statusBar.innerText = "Playing: " + (score.title || "Untitled");
+
+            // Fill Track Selector
+            trackSelector.innerHTML = '';
+            score.tracks.forEach((track, index) => {
+                const opt = document.createElement('option');
+                opt.value = index;
+                opt.innerText = track.name;
+                trackSelector.appendChild(opt);
+            });
+
+            // Auto-render first track
+            api.renderTracks([score.tracks[0]]);
+        });
+
+        // 6. Controls Logic
+        trackSelector.onchange = () => {
+            const track = api.score.tracks[trackSelector.value];
+            api.renderTracks([track]);
+        };
+
+        btnPlay.onclick = () => {
+            api.playPause();
+        };
+
+        api.playerStateChanged.on((args) => {
+            btnPlay.innerText = args.state === 1 ? "Pause" : "▶ Play";
+        });
+
+        btnStop.onclick = () => {
+            api.stop();
+        };
+
+        btnMetronome.onclick = () => {
+            api.settings.player.enableMetronome = !api.settings.player.enableMetronome;
+            api.updateSettings();
+            
+            if (api.settings.player.enableMetronome) {
+                btnMetronome.classList.add('active');
+                btnMetronome.innerText = "🔔 Metronome: On";
+            } else {
+                btnMetronome.classList.remove('active');
+                btnMetronome.innerText = "🔔 Metronome: Off";
+            }
+        };
+
+        let showStaff = false;
+        btnLayout.onclick = () => {
+            showStaff = !showStaff;
+            api.settings.display.staveRenderingConfig.visualization = showStaff ? 'all' : 'tab';
+            api.updateSettings();
+            api.render();
+            btnLayout.innerText = showStaff ? "Notes: On" : "Notes: Off";
+        };
+
+        // Resize handler for mobile orientation change
+        window.addEventListener('resize', () => {
+            api.render();
+        });
+
+        // Error handling
+        api.error.on((err) => {
+            loadingOverlay.style.display = 'none';
+            alert("Error: " + err.message);
+        });
+
+    </script>
+</body>
+</html>
