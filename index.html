@@ -11,9 +11,9 @@
         body.dark { --bg: #1a1a1a; --txt: #fff; --bar: #333; }
         html, body { margin: 0; padding: 0; width: 100%; height: 100dvh; overflow: hidden; background: var(--bg); color: var(--txt); font-family: sans-serif; }
         body { display: flex; flex-direction: column; }
-        .toolbar { background: var(--bar); padding: 10px; padding-top: calc(10px + var(--tg-safe-area-inset-top, 0px)); display: flex; gap: 8px; border-bottom: 1px solid rgba(0,0,0,0.1); z-index: 10; flex-wrap: wrap; }
+        .toolbar { background: var(--bar); padding: 10px; padding-top: calc(10px + var(--tg-safe-area-inset-top, 0px)); display: flex; gap: 8px; border-bottom: 1px solid rgba(0,0,0,0.1); z-index: 10; }
         button, select { font-size: 13px; padding: 8px 10px; border-radius: 8px; border: none; background: var(--btn); color: var(--btn-txt); font-weight: bold; cursor: pointer; }
-        #trackList, #langSelector { background: var(--bg); color: var(--txt); border: 1px solid var(--btn); }
+        #trackList { flex: 1; background: var(--bg); color: var(--txt); border: 1px solid var(--btn); }
         #tab-view { flex: 1; overflow: auto; background: var(--bg); }
         #fileInput { display: none; }
         #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); color: #fff; display: none; align-items: center; justify-content: center; z-index: 1000; font-weight: bold; }
@@ -25,10 +25,6 @@
         <button id="openBtn">📁</button>
         <button id="playBtn">▶</button>
         <button id="themeBtn">🌓</button>
-        <select id="langSelector">
-            <option value="ru">RU</option>
-            <option value="en">EN</option>
-        </select>
         <select id="trackList"><option value="0">...</option></select>
     </div>
     <div id="tab-view"><div id="alphaTab"></div></div>
@@ -39,44 +35,38 @@
         tg.ready();
         tg.expand();
 
-        // Russian text in escaped Unicode format (Failsafe)
-        const labels = {
+        // Unicode dictionary (No raw cyrillic characters here)
+        const langMap = {
             ru: {
-                open: "\uD83D\uDCC1 \u041E\u0442\u043A\u0440\u044B\u0442\u044C",
-                play: "\u25B6 \u0418\u0433\u0440\u0430\u0442\u044C",
-                pause: "\u23F8 \u041F\u0430\u0443\u0437\u0430",
-                theme: "\u25D1 \u0422\u0435\u043C\u0430",
-                loading: "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430...",
-                noFile: "\u041D\u0435\u0442 \u0444\u0430\u0439\u043B\u0430"
+                open: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C", // Открыть
+                play: "\u0418\u0433\u0440\u0430\u0442\u044C", // Играть
+                pause: "\u041F\u0430\u0443\u0437\u0430", // Пауза
+                theme: "\u0422\u0435\u043C\u0430", // Тема
+                load: "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430...", // Загрузка
+                empty: "\u041D\u0435\u0442 \u0444\u0430\u0439\u043B\u0430" // Нет файла
             },
             en: {
-                open: "📁 Open",
-                play: "▶ Play",
-                pause: "⏸ Pause",
-                theme: "🌓 Theme",
-                loading: "Loading...",
-                noFile: "No file"
+                open: "Open", play: "Play", pause: "Pause", theme: "Theme", load: "Loading...", empty: "No file"
             }
         };
 
-        let curLang = 'ru';
+        // Detect Telegram Language
+        const userLanguage = (tg.initDataUnsafe?.user?.language_code || navigator.language || 'en').toLowerCase();
+        const L = (userLanguage.startsWith('ru') || userLanguage.startsWith('be') || userLanguage.startsWith('uk')) ? langMap.ru : langMap.en;
+
         const el = document.querySelector('#alphaTab');
         const api = new alphaTab.AlphaTabApi(el, {
             player: { enablePlayer: true, soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.3.0/dist/soundfonts/sonivox.sf2' }
         });
 
-        function ui() {
-            const l = labels[curLang];
-            document.getElementById('openBtn').innerText = l.open;
-            document.getElementById('themeBtn').innerText = l.theme;
-            document.getElementById('loading').innerText = l.loading;
-            document.getElementById('playBtn').innerText = (api && api.playerState === 1) ? l.pause : l.play;
-            if(document.getElementById('trackList').options[0] && !api.score) {
-                document.getElementById('trackList').options[0].innerText = l.noFile;
-            }
+        function updateUI() {
+            document.getElementById('openBtn').innerHTML = "📁 " + L.open;
+            document.getElementById('themeBtn').innerHTML = "🌓 " + L.theme;
+            document.getElementById('loading').innerText = L.load;
+            document.getElementById('playBtn').innerText = (api && api.playerState === 1) ? L.pause : "▶ " + L.play;
+            if(!api.score) document.getElementById('trackList').options[0].innerText = L.empty;
         }
 
-        document.getElementById('langSelector').onchange = (e) => { curLang = e.target.value; ui(); };
         document.getElementById('openBtn').onclick = () => document.getElementById('fileInput').click();
         document.getElementById('fileInput').onchange = (e) => {
             const f = e.target.files[0]; if (!f) return;
@@ -85,11 +75,11 @@
             r.readAsArrayBuffer(f);
         };
 
-        let dk = false;
+        let isDark = false;
         document.getElementById('themeBtn').onclick = () => {
-            dk = !dk; document.body.classList.toggle('dark', dk);
-            api.settings.display.resources.mainColor = dk ? '#ffffff' : '#000000';
-            api.settings.display.staveRenderingConfig.staveColor = dk ? '#ffffff' : '#000000';
+            isDark = !isDark; document.body.classList.toggle('dark', isDark);
+            api.settings.display.resources.mainColor = isDark ? '#ffffff' : '#000000';
+            api.settings.display.staveRenderingConfig.staveColor = isDark ? '#ffffff' : '#000000';
             api.updateSettings(); api.render();
         };
 
@@ -100,10 +90,12 @@
             api.renderTracks([s.tracks[0]]);
         });
 
-        document.getElementById('btnPlay') || (document.getElementById('playBtn').onclick = () => api.playPause());
-        api.playerStateChanged.on(() => ui());
+        document.getElementById('playBtn').onclick = () => api.playPause();
+        api.playerStateChanged.on(() => updateUI());
         window.addEventListener('resize', () => api.render());
-        ui();
+
+        // Initial interface text setup
+        updateUI();
     </script>
 </body>
 </html>
