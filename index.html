@@ -4,76 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>TG Guitar Player</title>
-    <!-- Telegram Web App Script -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- AlphaTab Script -->
     <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.7.1/dist/alphaTab.js"></script>
     <style>
-        :root { 
-            --bg: #ffffff; --txt: #222222; --btn: #2481cc; --btn-txt: #ffffff; --bar: #f8f8f8; 
-        }
-        
-        html, body { 
-            margin: 0; padding: 0; width: 100%; height: 100dvh; 
-            overflow: hidden; background: var(--bg); color: var(--txt); 
-            font-family: -apple-system, sans-serif; 
-        }
+        :root { --bg: #ffffff; --txt: #222222; --btn: #2481cc; --btn-txt: #ffffff; --bar: #f8f8f8; }
+        html, body { margin: 0; padding: 0; width: 100%; height: 100dvh; overflow: hidden; background: var(--bg); color: var(--txt); font-family: -apple-system, sans-serif; }
         body { display: flex; flex-direction: column; }
-
-        /* Header with Instrument Selector */
-        .header {
-            background: var(--bar);
-            padding: 10px;
-            padding-top: calc(10px + var(--tg-safe-area-inset-top, 0px));
-            display: flex; align-items: center; gap: 10px;
-            border-bottom: 1px solid rgba(0,0,0,0.1);
-            z-index: 10;
-        }
-
-        #trackList { 
-            flex: 1; padding: 8px; border-radius: 8px; 
-            border: 1px solid var(--btn); font-size: 14px; background: #fff;
-        }
-
-        #tab-view { 
-            flex: 1; overflow: auto; background: #ffffff; 
-            -webkit-overflow-scrolling: touch; 
-        }
-
-        /* Bottom Controls */
-        .controls {
-            background: var(--bar);
-            padding: 15px 10px;
-            padding-bottom: calc(15px + var(--tg-safe-area-inset-bottom, 0px));
-            display: flex; justify-content: center; align-items: center; gap: 20px;
-            border-top: 1px solid rgba(0,0,0,0.1);
-            z-index: 10;
-        }
-
-        .btn-main {
-            background: var(--btn); color: var(--btn-txt);
-            border: none; border-radius: 12px; padding: 10px;
-            min-width: 80px; font-weight: 600; cursor: pointer;
-            display: flex; flex-direction: column; align-items: center; gap: 4px;
-            transition: opacity 0.2s;
-        }
+        .header { background: var(--bar); padding: 10px; padding-top: calc(10px + var(--tg-safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(0,0,0,0.1); z-index: 10; }
+        #trackList { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--btn); font-size: 14px; background: #fff; }
+        #tab-view { flex: 1; overflow: auto; background: #ffffff; -webkit-overflow-scrolling: touch; }
+        .controls { background: var(--bar); padding: 15px 10px; padding-bottom: calc(15px + var(--tg-safe-area-inset-bottom, 0px)); display: flex; justify-content: center; align-items: center; gap: 20px; border-top: 1px solid rgba(0,0,0,0.1); z-index: 10; }
+        .btn-main { background: var(--btn); color: var(--btn-txt); border: none; border-radius: 12px; padding: 10px; min-width: 80px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: opacity 0.2s; }
         .btn-main:active { opacity: 0.7; }
         .btn-main span:last-child { font-size: 10px; text-transform: uppercase; }
-
-        /* Landscape Mode (3x smaller) */
-        @media (orientation: landscape) {
-            .controls { padding: 5px; gap: 30px; }
-            .btn-main { min-width: 60px; padding: 5px; }
-            .btn-main span:last-child { display: none; }
-            .header { padding: 5px; padding-top: 5px; }
-        }
-
-        /* Loading Overlay */
-        #loading { 
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
-            background: #ffffff; display: flex; flex-direction: column; 
-            align-items: center; justify-content: center; z-index: 1000; 
-        }
+        @media (orientation: landscape) { .controls { padding: 5px; gap: 30px; } .btn-main { min-width: 60px; padding: 5px; } .btn-main span:last-child { display: none; } .header { padding: 5px; padding-top: 5px; } }
+        
+        #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; text-align: center; padding: 20px; }
         .metronome-active { background: #e74c3c !important; }
         .at-cursor-bar { fill: rgba(36, 129, 204, 0.15); }
     </style>
@@ -83,6 +29,7 @@
     <div id="loading">
         <div style="font-size: 40px; margin-bottom: 20px;">🎸</div>
         <div id="status">Initializing...</div>
+        <button id="skipLoading" style="display:none; margin-top: 20px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: #eee;">Skip Loading</button>
     </div>
 
     <div class="header">
@@ -113,21 +60,35 @@
 
         const el = document.querySelector('#alphaTab');
         const status = document.getElementById('status');
+        const loader = document.getElementById('loading');
+        const skipBtn = document.getElementById('skipLoading');
         let lastBar = -1;
         let metroOn = false;
 
+        // Force hide loader after 12 seconds as a safety measure
+        const safetyTimeout = setTimeout(() => {
+            status.innerText = "Taking too long? Check if sonivox.sf2 is in your repo.";
+            skipBtn.style.display = 'block';
+        }, 12000);
+
+        skipBtn.onclick = () => loader.style.display = 'none';
+
         const api = new alphaTab.AlphaTabApi(el, {
-            importer: { encoding: 'cp1251' }, // Keep cp1251 for legacy file compatibility
+            importer: { encoding: 'cp1251' },
             player: { 
                 enablePlayer: true, 
                 enableMetronome: true, 
                 enableCursor: true,
-                soundFont: './sonivox.sf2' // Local file from your repository
+                soundFont: './sonivox.sf2' 
             },
             display: { layoutMode: 'page' }
         });
 
-        // Bar voice announcement
+        function hideLoader() {
+            clearTimeout(safetyTimeout);
+            loader.style.display = 'none';
+        }
+
         function speak(text) {
             if ('speechSynthesis' in window) {
                 const msg = new SpeechSynthesisUtterance(text);
@@ -137,7 +98,6 @@
             }
         }
 
-        // SoundFont Loading Events
         api.soundFontLoad.on((e) => {
             const p = Math.floor(e.loaded / e.total * 100);
             status.innerText = `Loading Sounds: ${p}%`;
@@ -145,22 +105,29 @@
 
         api.soundFontLoaded.on(() => {
             status.innerText = "Ready!";
-            setTimeout(() => document.getElementById('loading').style.display = 'none', 600);
+            setTimeout(hideLoader, 600);
         });
 
-        // File Loading
+        // Fallback if local file fails
+        setTimeout(() => {
+            if(loader.style.display !== 'none' && status.innerText === 'Initializing...') {
+                status.innerText = "Local soundfont not found. Trying backup...";
+                api.settings.player.soundFont = 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.7.1/dist/soundfont/sonivox.sf2';
+                api.updateSettings();
+            }
+        }, 5000);
+
         document.getElementById('fileInput').onchange = (e) => {
             const f = e.target.files[0]; if(!f) return;
-            document.getElementById('loading').style.display = 'flex';
+            loader.style.display = 'flex';
             status.innerText = "Loading File...";
             const r = new FileReader();
             r.onload = (res) => api.load(new Uint8Array(res.target.result));
             r.readAsArrayBuffer(f);
         };
 
-        // Score Loaded: Build Track List
         api.scoreLoaded.on((score) => {
-            document.getElementById('loading').style.display = 'none';
+            hideLoader();
             const tl = document.getElementById('trackList');
             tl.innerHTML = '';
             score.tracks.forEach((t, i) => {
@@ -175,7 +142,6 @@
             api.renderTracks([api.score.tracks[parseInt(e.target.value)]]);
         };
 
-        // Cursor tracking and bar voice announcement
         api.playerPositionChanged.on((args) => {
             const currentBar = args.index + 1;
             if(currentBar !== lastBar) {
@@ -184,7 +150,6 @@
             }
         });
 
-        // Player Controls
         document.getElementById('playBtn').onclick = () => api.playPause();
 
         document.getElementById('metroBtn').onclick = function() {
@@ -204,5 +169,6 @@
     </script>
 </body>
 </html>
+
 
 
