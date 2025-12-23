@@ -3,201 +3,275 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TG Guitar Player</title>
+    <title>GP Pro Player</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.7.1/dist/alphaTab.js"></script>
     <style>
-        :root { --bg: #ffffff; --txt: #222222; --btn: #2481cc; --btn-txt: #ffffff; --bar: #f8f8f8; }
-        html, body { margin: 0; padding: 0; width: 100%; height: 100dvh; overflow: hidden; background: var(--bg); color: var(--txt); font-family: -apple-system, sans-serif; }
-        body { display: flex; flex-direction: column; }
-        
-        .header { background: var(--bar); padding: 10px; padding-top: calc(10px + var(--tg-safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(0,0,0,0.1); z-index: 10; }
-        #trackList { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--btn); font-size: 14px; background: #fff; }
-        
-        /* Container for tabs - MUST have position relative for the cursor */
-        #tab-view { flex: 1; overflow: auto; background: #ffffff; -webkit-overflow-scrolling: touch; position: relative; }
-        
-        .controls { background: var(--bar); padding: 15px 10px; padding-bottom: calc(15px + var(--tg-safe-area-inset-bottom, 0px)); display: flex; justify-content: center; align-items: center; gap: 20px; border-top: 1px solid rgba(0,0,0,0.1); z-index: 10; }
-        .btn-main { background: var(--btn); color: var(--btn-txt); border: none; border-radius: 12px; padding: 10px; min-width: 80px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-        
-        #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; text-align: center; padding: 40px; }
-        #progress-container { width: 100%; max-width: 250px; height: 12px; background: #e0e0e0; border-radius: 6px; margin: 20px 0 10px 0; overflow: hidden; display: none; }
-        #progress-bar { width: 0%; height: 100%; background: var(--btn); transition: width 0.1s linear; }
-        .start-btn { padding: 15px 30px; font-size: 18px; font-weight: bold; background: #2481cc; color: white; border: none; border-radius: 12px; cursor: pointer; }
-
-        /* BRIGHT BLUE CURSOR STYLING */
-        .at-cursor-bar { 
-            background: rgba(36, 129, 204, 0.3) !important; 
-            border-left: 3px solid #2481cc !important;
-            box-sizing: border-box !important;
-            z-index: 5;
-            pointer-events: none;
+        :root {
+            --bg: #000000;
+            --bar-bg: rgba(20, 20, 20, 0.95);
+            --text: #ffffff;
+            --accent: #2481cc;
+            --btn-bg: rgba(255, 255, 255, 0.1);
         }
 
-        @media (orientation: landscape) { .controls { padding: 5px; gap: 40px; } .btn-main { min-width: 50px; padding: 5px; } .btn-main span:last-child { display: none; } }
+        html, body {
+            margin: 0; padding: 0; width: 100%; height: 100dvh;
+            overflow: hidden; background: var(--bg); color: var(--text);
+            font-family: -apple-system, sans-serif;
+        }
+
+        /* --- Global UI --- */
+        #loading {
+            position: fixed; inset: 0; background: var(--bg);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 1000;
+        }
+
+        /* Bar/Measure visualizer at the very top */
+        .measure-bar {
+            height: 30px; background: #222; display: flex; align-items: center;
+            padding: 0 10px; gap: 5px; overflow: hidden; border-bottom: 1px solid #333;
+        }
+        .measure-dot { width: 4px; height: 12px; background: #444; border-radius: 2px; }
+        .measure-dot.active { background: var(--accent); height: 18px; }
+
+        /* Tabs Container */
+        #tab-view { flex: 1; overflow: auto; background: #fff; position: relative; }
+
+        /* Fretboard Section */
+        #alphaTab-fretboard { height: 120px; background: #1a1a1a; border-top: 2px solid #333; }
+
+        /* --- PORTRAIT MODE --- */
+        @media (orientation: portrait) {
+            body { display: flex; flex-direction: column; }
+            .side-bar { display: none; }
+            
+            .header {
+                height: 50px; background: var(--bar-bg); display: flex; align-items: center;
+                justify-content: space-between; padding: 0 15px;
+            }
+            
+            .footer {
+                background: var(--bar-bg); padding: 10px 15px;
+                padding-bottom: calc(10px + var(--tg-safe-area-inset-bottom, 0px));
+            }
+            
+            .controls-main { display: flex; justify-content: space-around; align-items: center; margin-bottom: 15px; }
+            .tempo-slider-container { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+            .tempo-slider-container input { flex: 1; accent-color: var(--accent); }
+            .filename { font-size: 11px; color: #666; text-align: center; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        }
+
+        /* --- LANDSCAPE MODE --- */
+        @media (orientation: landscape) {
+            body { 
+                display: grid; 
+                grid-template-columns: 60px 1fr 60px; 
+                grid-template-rows: 30px 1fr 100px; 
+                height: 100vh; 
+            }
+            .header, .footer, .tempo-slider-container { display: none; }
+            
+            .measure-bar { grid-column: 1 / 4; }
+            #tab-view { grid-column: 2 / 3; grid-row: 2 / 3; }
+            #alphaTab-fretboard { grid-column: 1 / 4; grid-row: 3 / 4; height: 100px; }
+
+            .side-bar {
+                display: flex; flex-direction: column; align-items: center;
+                justify-content: space-around; background: var(--bar-bg); padding: 10px 0;
+            }
+            .side-bar.left { grid-column: 1 / 2; grid-row: 2 / 3; border-right: 1px solid #333; }
+            .side-bar.right { grid-column: 3 / 4; grid-row: 2 / 3; border-left: 1px solid #333; }
+        }
+
+        /* Icon Buttons */
+        .icon-btn {
+            background: none; border: none; color: var(--text); font-size: 24px;
+            cursor: pointer; padding: 8px; border-radius: 8px; transition: 0.2s;
+        }
+        .icon-btn:active { color: var(--accent); opacity: 0.7; }
+        .icon-btn.active { color: var(--accent); }
+
+        /* AlphaTab Cursor Styling */
+        .at-cursor-bar { background: rgba(36, 129, 204, 0.2) !important; border-left: 2px solid var(--accent) !important; }
     </style>
 </head>
 <body>
 
     <div id="loading">
-        <div style="font-size: 50px; margin-bottom: 10px;">🎸</div>
-        <div id="status">Ready?</div>
-        <button id="startBtn" class="start-btn" style="margin-top: 20px;">START APP</button>
-        <div id="progress-container"><div id="progress-bar"></div></div>
-        <div id="percent-text" style="margin-top: 10px; font-weight: bold; color: #2481cc;"></div>
+        <div style="font-size: 50px;">🎸</div>
+        <div id="status">Ready to load</div>
+        <button id="startBtn" style="margin-top:20px; padding:12px 35px; border-radius:25px; border:none; background:var(--accent); color:#fff; font-weight:bold; cursor:pointer;">START APP</button>
     </div>
 
+    <!-- Top Measure Bar -->
+    <div class="measure-bar" id="measureDots"></div>
+
+    <!-- Header (Portrait Only) -->
     <div class="header">
-        <button onclick="document.getElementById('fileInput').click()" style="background:none; border:none; font-size:24px; cursor:pointer;">📁</button>
-        <select id="trackList"><option>No track</option></select>
+        <button class="icon-btn" onclick="openFile()">📁</button>
+        <select id="trackList" style="background:none; border:none; color:#fff; font-weight:bold; max-width: 150px;"></select>
+        <div style="display:flex; gap:10px;">
+            <button class="icon-btn" onclick="toggleFretboard()">🎸</button>
+            <button class="icon-btn">⚙</button>
+        </div>
     </div>
 
+    <!-- Left Sidebar (Landscape Only) -->
+    <div class="side-bar left">
+        <button class="icon-btn" onclick="openFile()">📁</button>
+        <button class="icon-btn">☰</button> <!-- Mixer -->
+        <button class="icon-btn" onclick="toggleFretboard()">🎸</button>
+        <button class="icon-btn">⚙</button>
+        <button class="icon-btn">ⓘ</button>
+    </div>
+
+    <!-- Center Tab View -->
     <div id="tab-view">
         <div id="alphaTab"></div>
     </div>
 
-    <div class="controls">
-        <button class="btn-main" id="playBtn"><span id="icoPlay" style="font-size: 24px;">▶</span><span>Play</span></button>
-        <button class="btn-main" id="metroBtn"><span style="font-size: 24px;">⏲</span><span>Metro</span></button>
+    <!-- Right Sidebar (Landscape Only) -->
+    <div class="side-bar right">
+        <button class="icon-btn" id="playBtnL" onclick="api.playPause()">▶</button>
+        <button class="icon-btn">⏮</button>
+        <button class="icon-btn">⏭</button>
+        <button class="icon-btn">♩</button> <!-- Tempo -->
+        <button class="icon-btn" id="metroBtnL" onclick="toggleMetro()">⏳</button>
     </div>
-    
+
+    <!-- Virtual Fretboard -->
+    <div id="alphaTab-fretboard"></div>
+
+    <!-- Footer (Portrait Only) -->
+    <div class="footer">
+        <div class="filename" id="fileNameDisplay">No file selected</div>
+        <div class="tempo-slider-container">
+            <span style="font-size: 14px; font-weight: bold;">♩</span>
+            <input type="range" id="tempoRange" min="0.25" max="2" step="0.1" value="1">
+            <span id="tempoText" style="font-size: 12px; min-width: 45px; font-family: monospace;">x 1.0</span>
+        </div>
+        <div class="controls-main">
+            <button class="icon-btn">⏮</button>
+            <button class="icon-btn" id="playBtnP" onclick="api.playPause()" style="font-size: 44px;">▶</button>
+            <button class="icon-btn">⏭</button>
+        </div>
+        <div style="display:flex; justify-content: space-around; opacity: 0.6;">
+            <button class="icon-btn">🔄</button>
+            <button class="icon-btn" id="metroBtnP" onclick="toggleMetro()">⏳</button>
+            <button class="icon-btn">🎧</button>
+        </div>
+    </div>
+
     <input type="file" id="fileInput" accept=".gp,.gp3,.gp4,.gp5,.gpx" style="display:none">
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
-        const status = document.getElementById('status');
-        const loader = document.getElementById('loading');
-        const startBtn = document.getElementById('startBtn');
-        const pContainer = document.getElementById('progress-container');
-        const pBar = document.getElementById('progress-bar');
-        const pText = document.getElementById('percent-text');
-
+        const el = document.querySelector('#alphaTab');
+        const fretEl = document.querySelector('#alphaTab-fretboard');
         let api = null;
-        let lastBar = -1;
+        let isMetro = false;
 
-        async function loadSoundFont(url) {
-            startBtn.style.display = 'none';
-            pContainer.style.display = 'block';
-            status.innerText = "Downloading HQ Engine...";
-
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error();
-                const reader = response.body.getReader();
-                const contentLength = +response.headers.get('Content-Length');
-                let receivedLength = 0;
-                let chunks = [];
-
-                while(true) {
-                    const {done, value} = await reader.read();
-                    if (done) break;
-                    chunks.push(value);
-                    receivedLength += value.length;
-                    if (contentLength) {
-                        let p = Math.floor((receivedLength / contentLength) * 100);
-                        pBar.style.width = p + '%';
-                        pText.innerText = p + '%';
-                    }
-                }
-                
-                status.innerText = "Initializing...";
-                const blob = new Blob(chunks, { type: 'application/octet-stream' });
-                initAlphaTab(URL.createObjectURL(blob));
-                
-                setTimeout(() => { if (loader.style.display !== 'none') loader.style.display = 'none'; }, 3000);
-            } catch (err) {
-                status.innerText = "Failed to load audio. Please Refresh.";
-            }
+        // Create Measure Dots
+        const measureDots = document.getElementById('measureDots');
+        for(let i=0; i<60; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'measure-dot';
+            measureDots.appendChild(dot);
         }
 
-        function initAlphaTab(sf2Url) {
-            api = new alphaTab.AlphaTabApi(document.querySelector('#alphaTab'), {
+        async function initApp(sf2Url) {
+            api = new alphaTab.AlphaTabApi(el, {
                 importer: { encoding: 'cp1251' },
                 player: { 
                     enablePlayer: true, 
-                    enableMetronome: true, 
                     enableCursor: true, 
                     soundFont: sf2Url 
                 },
                 display: { 
                     layoutMode: 'page',
-                    scrollElement: '#tab-view' // CRITICAL: Tells AlphaTab where to draw the cursor
+                    scrollElement: '#tab-view'
                 }
             });
 
-            api.soundFontLoaded.on(() => { loader.style.display = 'none'; });
-            setupHandlers();
+            // Initialize Fretboard
+            new alphaTab.gui.backings.Fretboard(fretEl, api);
+
+            api.soundFontLoaded.on(() => {
+                document.getElementById('loading').style.display = 'none';
+            });
+
+            setupEvents();
         }
 
-        startBtn.onclick = () => {
-            loadSoundFont('https://raw.githubusercontent.com/wrightflyer/SF2_SoundFonts/master/Chaos%20Bank%20V1.9%20(12Mb).sf2');
-        };
-
-        function speak(text) {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); 
-                const msg = new SpeechSynthesisUtterance(text);
-                msg.lang = 'en-US';
-                msg.rate = 1.3;
-                window.speechSynthesis.speak(msg);
-            }
-        }
-
-        function setupHandlers() {
-            document.getElementById('fileInput').onchange = (e) => {
-                const f = e.target.files[0]; if(!f) return;
-                loader.style.display = 'flex';
-                status.innerText = "Loading File...";
-                const r = new FileReader();
-                r.onload = (res) => { 
-                    api.load(new Uint8Array(res.target.result)); 
-                    lastBar = -1; 
-                };
-                r.readAsArrayBuffer(f);
-            };
-
-            api.scoreLoaded.on((score) => {
-                loader.style.display = 'none';
+        function setupEvents() {
+            api.scoreLoaded.on((s) => {
                 const tl = document.getElementById('trackList');
                 tl.innerHTML = '';
-                score.tracks.forEach((t, i) => {
+                s.tracks.forEach((t, i) => {
                     const o = document.createElement('option');
                     o.value = i; o.innerText = t.name || `Track ${i+1}`;
                     tl.appendChild(o);
                 });
-                api.renderTracks([score.tracks[0]]);
+                api.renderTracks([s.tracks[0]]);
             });
+
+            api.playerStateChanged.on(() => {
+                const ico = api.playerState === 1 ? "⏸" : "▶";
+                document.getElementById('playBtnP').innerText = ico;
+                document.getElementById('playBtnL').innerText = ico;
+            });
+
+            document.getElementById('tempoRange').oninput = (e) => {
+                const val = parseFloat(e.target.value);
+                api.playbackSpeed = val;
+                document.getElementById('tempoText').innerText = `x ${val.toFixed(1)}`;
+            };
 
             api.playerPositionChanged.on((args) => {
-                if (api.playerState !== 1) return;
-                const currentBar = args.index + 1;
-                if (currentBar !== lastBar && currentBar > 0) {
-                    lastBar = currentBar;
-                    speak("Bar " + currentBar);
-                }
+                const dots = measureDots.querySelectorAll('.measure-dot');
+                dots.forEach(d => d.classList.remove('active'));
+                if(dots[args.index]) dots[args.index].classList.add('active');
             });
 
-            document.getElementById('playBtn').onclick = () => {
-                // Audio Wake-up for iPhone
-                if (api.player.host && api.player.host.audioContext) api.player.host.audioContext.resume();
-                api.playPause();
+            document.getElementById('trackList').onchange = (e) => {
+                api.renderTracks([api.score.tracks[parseInt(e.target.value)]]);
             };
-
-            document.getElementById('metroBtn').onclick = function() {
-                const vol = api.settings.player.metronomeVolume > 0 ? 0 : 1;
-                api.settings.player.metronomeVolume = vol;
-                api.updateSettings();
-                this.style.background = vol > 0 ? '#e74c3c' : '#2481cc';
-            };
-
-            document.getElementById('trackList').onchange = (e) => api.renderTracks([api.score.tracks[parseInt(e.target.value)]]);
-            api.playerStateChanged.on(() => { document.getElementById('icoPlay').innerText = api.playerState === 1 ? "⏸" : "▶"; });
-            
-            // Re-render cursor on window resize
-            window.addEventListener('resize', () => api.render());
         }
+
+        function openFile() {
+            const input = document.getElementById('fileInput');
+            input.onchange = (e) => {
+                const f = e.target.files[0];
+                if(f) {
+                    api.load(f);
+                    document.getElementById('fileNameDisplay').innerText = f.name;
+                }
+            };
+            input.click();
+        }
+
+        function toggleMetro() {
+            isMetro = !isMetro;
+            api.settings.player.metronomeVolume = isMetro ? 1 : 0;
+            api.updateSettings();
+            document.getElementById('metroBtnP').classList.toggle('active', isMetro);
+            document.getElementById('metroBtnL').classList.toggle('active', isMetro);
+        }
+
+        function toggleFretboard() {
+            const fb = document.getElementById('alphaTab-fretboard');
+            fb.style.display = fb.style.display === 'none' ? 'block' : 'none';
+            api.render();
+        }
+
+        document.getElementById('startBtn').onclick = () => {
+            document.getElementById('status').innerText = "Initializing Engine...";
+            initApp('https://raw.githubusercontent.com/wrightflyer/SF2_SoundFonts/master/Chaos%20Bank%20V1.9%20(12Mb).sf2');
+        };
     </script>
 </body>
 </html>
