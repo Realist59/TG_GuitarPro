@@ -17,37 +17,36 @@
         .btn-main { background: var(--btn); color: var(--btn-txt); border: none; border-radius: 12px; padding: 10px; min-width: 80px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: opacity 0.2s; }
         .btn-main:active { opacity: 0.7; }
         .btn-main span:last-child { font-size: 10px; text-transform: uppercase; }
-        @media (orientation: landscape) { .controls { padding: 5px; gap: 30px; } .btn-main { min-width: 60px; padding: 5px; } .btn-main span:last-child { display: none; } .header { padding: 5px; padding-top: 5px; } }
+        
         #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; text-align: center; padding: 20px; }
+        #progress-bar { width: 200px; height: 10px; background: #eee; border-radius: 5px; margin-top: 15px; overflow: hidden; display: none; }
+        #progress-fill { width: 0%; height: 100%; background: var(--btn); transition: width 0.2s; }
         .metronome-active { background: #e74c3c !important; }
-        .at-cursor-bar { fill: rgba(36, 129, 204, 0.15); }
     </style>
 </head>
 <body>
 
     <div id="loading">
-        <div style="font-size: 40px; margin-bottom: 20px;">🎸</div>
-        <div id="status">Connecting to Sound Engine...</div>
-        <button id="skipLoading" style="display:none; margin-top: 20px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: #eee;">Enter Player Anyway</button>
+        <div style="font-size: 40px; margin-bottom: 10px;">🎸</div>
+        <div id="status">Loading HQ Sound Engine...</div>
+        <div id="progress-bar"><div id="progress-fill"></div></div>
+        <div id="percent" style="margin-top: 5px; font-size: 12px; color: #666;"></div>
+        <button id="skipLoading" style="display:none; margin-top: 20px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: #eee;">Enter without sound</button>
     </div>
 
     <div class="header">
-        <button onclick="document.getElementById('fileInput').click()" style="background:none; border:none; font-size:24px; cursor:pointer;">📁</button>
+        <button onclick="document.getElementById('fileInput').click()" style="background:none; border:none; font-size: 24px;">📁</button>
         <select id="trackList"><option>No file loaded</option></select>
     </div>
 
-    <div id="tab-view">
-        <div id="alphaTab"></div>
-    </div>
+    <div id="tab-view"><div id="alphaTab"></div></div>
 
     <div class="controls">
         <button class="btn-main" id="playBtn">
-            <span id="icoPlay" style="font-size: 24px;">▶</span>
-            <span id="txtPlay">Play</span>
+            <span id="icoPlay" style="font-size: 24px;">▶</span><span id="txtPlay">Play</span>
         </button>
         <button class="btn-main" id="metroBtn">
-            <span style="font-size: 24px;">⏲</span>
-            <span>Metro</span>
+            <span style="font-size: 24px;">⏲</span><span>Metro</span>
         </button>
     </div>
     
@@ -60,16 +59,15 @@
         const el = document.querySelector('#alphaTab');
         const status = document.getElementById('status');
         const loader = document.getElementById('loading');
+        const pBar = document.getElementById('progress-bar');
+        const pFill = document.getElementById('progress-fill');
+        const pPercent = document.getElementById('percent');
         const skipBtn = document.getElementById('skipLoading');
+        
         let lastBar = -1;
-        let metroOn = false;
 
-        // Increased safety timeout to 30 seconds for mobile connections
-        const safetyTimeout = setTimeout(() => {
-            status.innerText = "Connection is slow. You can enter, but sounds might still be loading.";
-            skipBtn.style.display = 'block';
-        }, 30000);
-
+        // Give HQ sound 60 seconds to load before showing skip button
+        setTimeout(() => { if(loader.style.display !== 'none') skipBtn.style.display = 'block'; }, 60000);
         skipBtn.onclick = () => loader.style.display = 'none';
 
         const api = new alphaTab.AlphaTabApi(el, {
@@ -78,39 +76,25 @@
                 enablePlayer: true, 
                 enableMetronome: true, 
                 enableCursor: true,
-                // USE FULL ABSOLUTE URL FOR BETTER COMPATIBILITY
-                soundFont: 'https://realist59.github.io/TG_GuitarPro/sonivox.sf2' 
-            },
-            display: { layoutMode: 'page' }
+                soundFont: 'https://realist59.github.io/TG_GuitarPro/sound.sf2' 
+            }
         });
 
-        function hideLoader() {
-            clearTimeout(safetyTimeout);
-            loader.style.display = 'none';
-        }
-
-        function speak(text) {
-            if ('speechSynthesis' in window) {
-                const msg = new SpeechSynthesisUtterance(text);
-                msg.lang = 'en-US';
-                msg.rate = 1.2;
-                window.speechSynthesis.speak(msg);
-            }
-        }
-
         api.soundFontLoad.on((e) => {
+            pBar.style.display = 'block';
             const p = Math.floor(e.loaded / e.total * 100);
-            status.innerText = `Loading Sounds: ${p}%`;
+            pFill.style.width = p + '%';
+            pPercent.innerText = p + '%';
+            status.innerText = "Downloading High-Quality Sounds...";
         });
 
         api.soundFontLoaded.on(() => {
-            status.innerText = "Ready!";
-            setTimeout(hideLoader, 600);
+            status.innerText = "Sound Engine Ready!";
+            setTimeout(() => loader.style.display = 'none', 800);
         });
 
-        // Backup plan: if local absolute link fails, try CDN
         api.soundFontLoadFailed.on(() => {
-            status.innerText = "Retrying from global server...";
+            status.innerText = "HQ Sound failed. Using lite backup...";
             api.settings.player.soundFont = 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.7.1/dist/soundfont/sonivox.sf2';
             api.updateSettings();
         });
@@ -125,7 +109,7 @@
         };
 
         api.scoreLoaded.on((score) => {
-            hideLoader();
+            loader.style.display = 'none';
             const tl = document.getElementById('trackList');
             tl.innerHTML = '';
             score.tracks.forEach((t, i) => {
@@ -136,26 +120,20 @@
             api.renderTracks([score.tracks[0]]);
         });
 
-        document.getElementById('trackList').onchange = (e) => {
-            api.renderTracks([api.score.tracks[parseInt(e.target.value)]]);
-        };
-
         api.playerPositionChanged.on((args) => {
             const currentBar = args.index + 1;
             if(currentBar !== lastBar) {
                 lastBar = currentBar;
-                speak(`Bar ${currentBar}`);
+                if ('speechSynthesis' in window) {
+                    const msg = new SpeechSynthesisUtterance("Bar " + currentBar);
+                    msg.lang = 'en-US';
+                    window.speechSynthesis.speak(msg);
+                }
             }
         });
 
         document.getElementById('playBtn').onclick = () => api.playPause();
-
-        document.getElementById('metroBtn').onclick = function() {
-            metroOn = !metroOn;
-            api.settings.player.metronomeVolume = metroOn ? 1 : 0;
-            api.updateSettings();
-            this.classList.toggle('metronome-active', metroOn);
-        };
+        document.getElementById('trackList').onchange = (e) => api.renderTracks([api.score.tracks[parseInt(e.target.value)]]);
 
         api.playerStateChanged.on(() => {
             const isPlaying = api.playerState === 1;
@@ -167,6 +145,7 @@
     </script>
 </body>
 </html>
+
 
 
 
