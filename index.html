@@ -10,16 +10,30 @@
         :root { --bg: #ffffff; --txt: #222222; --btn: #2481cc; --btn-txt: #ffffff; --bar: #f8f8f8; }
         html, body { margin: 0; padding: 0; width: 100%; height: 100dvh; overflow: hidden; background: var(--bg); color: var(--txt); font-family: -apple-system, sans-serif; }
         body { display: flex; flex-direction: column; }
+        
         .header { background: var(--bar); padding: 10px; padding-top: calc(10px + var(--tg-safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(0,0,0,0.1); z-index: 10; }
         #trackList { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--btn); font-size: 14px; background: #fff; }
+        
+        /* Container for tabs - MUST have position relative for the cursor */
         #tab-view { flex: 1; overflow: auto; background: #ffffff; -webkit-overflow-scrolling: touch; position: relative; }
+        
         .controls { background: var(--bar); padding: 15px 10px; padding-bottom: calc(15px + var(--tg-safe-area-inset-bottom, 0px)); display: flex; justify-content: center; align-items: center; gap: 20px; border-top: 1px solid rgba(0,0,0,0.1); z-index: 10; }
         .btn-main { background: var(--btn); color: var(--btn-txt); border: none; border-radius: 12px; padding: 10px; min-width: 80px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        
         #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; text-align: center; padding: 40px; }
         #progress-container { width: 100%; max-width: 250px; height: 12px; background: #e0e0e0; border-radius: 6px; margin: 20px 0 10px 0; overflow: hidden; display: none; }
         #progress-bar { width: 0%; height: 100%; background: var(--btn); transition: width 0.1s linear; }
         .start-btn { padding: 15px 30px; font-size: 18px; font-weight: bold; background: #2481cc; color: white; border: none; border-radius: 12px; cursor: pointer; }
-        .at-cursor-bar { fill: rgba(36, 129, 204, 0.25) !important; stroke: #2481cc !important; stroke-width: 2px !important; }
+
+        /* BRIGHT BLUE CURSOR STYLING */
+        .at-cursor-bar { 
+            background: rgba(36, 129, 204, 0.3) !important; 
+            border-left: 3px solid #2481cc !important;
+            box-sizing: border-box !important;
+            z-index: 5;
+            pointer-events: none;
+        }
+
         @media (orientation: landscape) { .controls { padding: 5px; gap: 40px; } .btn-main { min-width: 50px; padding: 5px; } .btn-main span:last-child { display: none; } }
     </style>
 </head>
@@ -37,11 +51,16 @@
         <button onclick="document.getElementById('fileInput').click()" style="background:none; border:none; font-size:24px; cursor:pointer;">📁</button>
         <select id="trackList"><option>No track</option></select>
     </div>
-    <div id="tab-view"><div id="alphaTab"></div></div>
+
+    <div id="tab-view">
+        <div id="alphaTab"></div>
+    </div>
+
     <div class="controls">
         <button class="btn-main" id="playBtn"><span id="icoPlay" style="font-size: 24px;">▶</span><span>Play</span></button>
         <button class="btn-main" id="metroBtn"><span style="font-size: 24px;">⏲</span><span>Metro</span></button>
     </div>
+    
     <input type="file" id="fileInput" accept=".gp,.gp3,.gp4,.gp5,.gpx" style="display:none">
 
     <script>
@@ -89,21 +108,30 @@
                 
                 setTimeout(() => { if (loader.style.display !== 'none') loader.style.display = 'none'; }, 3000);
             } catch (err) {
-                status.innerText = "Failed to load author's file.";
+                status.innerText = "Failed to load audio. Please Refresh.";
             }
         }
 
         function initAlphaTab(sf2Url) {
             api = new alphaTab.AlphaTabApi(document.querySelector('#alphaTab'), {
                 importer: { encoding: 'cp1251' },
-                player: { enablePlayer: true, enableMetronome: true, enableCursor: true, soundFont: sf2Url }
+                player: { 
+                    enablePlayer: true, 
+                    enableMetronome: true, 
+                    enableCursor: true, 
+                    soundFont: sf2Url 
+                },
+                display: { 
+                    layoutMode: 'page',
+                    scrollElement: '#tab-view' // CRITICAL: Tells AlphaTab where to draw the cursor
+                }
             });
+
             api.soundFontLoaded.on(() => { loader.style.display = 'none'; });
             setupHandlers();
         }
 
         startBtn.onclick = () => {
-            // ПРЯМАЯ ССЫЛКА НА АВТОРА (Chaos Bank 12MB)
             loadSoundFont('https://raw.githubusercontent.com/wrightflyer/SF2_SoundFonts/master/Chaos%20Bank%20V1.9%20(12Mb).sf2');
         };
 
@@ -123,7 +151,10 @@
                 loader.style.display = 'flex';
                 status.innerText = "Loading File...";
                 const r = new FileReader();
-                r.onload = (res) => { api.load(new Uint8Array(res.target.result)); lastBar = -1; };
+                r.onload = (res) => { 
+                    api.load(new Uint8Array(res.target.result)); 
+                    lastBar = -1; 
+                };
                 r.readAsArrayBuffer(f);
             };
 
@@ -149,6 +180,7 @@
             });
 
             document.getElementById('playBtn').onclick = () => {
+                // Audio Wake-up for iPhone
                 if (api.player.host && api.player.host.audioContext) api.player.host.audioContext.resume();
                 api.playPause();
             };
@@ -162,6 +194,8 @@
 
             document.getElementById('trackList').onchange = (e) => api.renderTracks([api.score.tracks[parseInt(e.target.value)]]);
             api.playerStateChanged.on(() => { document.getElementById('icoPlay').innerText = api.playerState === 1 ? "⏸" : "▶"; });
+            
+            // Re-render cursor on window resize
             window.addEventListener('resize', () => api.render());
         }
     </script>
