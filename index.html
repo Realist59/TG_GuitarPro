@@ -22,7 +22,6 @@
         }
         body { display: flex; flex-direction: column; }
 
-        /* Tabs Container */
         #tab-view { 
             flex: 1; 
             overflow: auto; 
@@ -31,7 +30,7 @@
             padding-top: var(--tg-safe-area-inset-top, 0px);
         }
 
-        /* Bottom Control Panel */
+        /* Standard Control Panel (Portrait) */
         .controls {
             background: var(--bar);
             padding: 15px 10px;
@@ -43,6 +42,7 @@
             border-top: 1px solid rgba(0,0,0,0.1);
             box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
             z-index: 10;
+            transition: all 0.3s ease;
         }
 
         .btn-main {
@@ -59,10 +59,32 @@
             align-items: center;
             gap: 5px;
             min-width: 80px;
-            transition: opacity 0.2s;
+            transition: all 0.2s;
         }
-        .btn-main:active { opacity: 0.7; }
-        .btn-main span { font-size: 10px; text-transform: uppercase; }
+
+        .btn-main span:last-child { font-size: 10px; text-transform: uppercase; }
+
+        /* Landscape Mode Fix (3x smaller) */
+        @media (orientation: landscape) {
+            .controls {
+                padding: 5px 10px;
+                padding-bottom: var(--tg-safe-area-inset-bottom, 5px);
+                gap: 40px;
+            }
+            .btn-main {
+                min-width: 50px;
+                padding: 5px 10px;
+                flex-direction: row; /* Icons and text side-by-side or just icons */
+                border-radius: 8px;
+            }
+            /* Hide text labels in landscape to save height */
+            .btn-main span:last-child {
+                display: none;
+            }
+            .btn-main span:first-child {
+                font-size: 18px !important;
+            }
+        }
 
         #loading { 
             position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
@@ -84,15 +106,15 @@
     <div class="controls">
         <button class="btn-main" id="openBtn">
             <span style="font-size: 20px;">📁</span>
-            <span id="txtOpen">Open</span>
+            <span>Open</span>
         </button>
-        <button class="btn-main" id="playBtn" style="padding: 12px 25px;">
+        <button class="btn-main" id="playBtn">
             <span id="icoPlay" style="font-size: 24px;">▶</span>
             <span id="txtPlay">Play</span>
         </button>
         <button class="btn-main" id="metroBtn">
             <span style="font-size: 20px;">⏲</span>
-            <span id="txtMetro">Metronome</span>
+            <span>Metro</span>
         </button>
     </div>
     
@@ -103,20 +125,12 @@
         tg.ready();
         tg.expand();
 
-        // UI Labels
-        const L = {
-            open: "Open",
-            play: "Play",
-            pause: "Pause",
-            metro: "Metronome",
-            load: "Loading..."
-        };
-
+        const L = { play: "Play", pause: "Pause", load: "Loading..." };
         const el = document.querySelector('#alphaTab');
         let metronomeEnabled = false;
 
         const api = new alphaTab.AlphaTabApi(el, {
-            importer: { encoding: 'cp1251' }, // Keep cp1251 for file compatibility (Cyrillic tracks)
+            importer: { encoding: 'cp1251' },
             player: { 
                 enablePlayer: true, 
                 enableMetronome: true, 
@@ -132,16 +146,11 @@
         });
 
         function updateUI() {
-            document.getElementById('txtOpen').innerText = L.open;
-            document.getElementById('txtLoad').innerText = L.load;
-            document.getElementById('txtMetro').innerText = L.metro;
-            
             const isPlaying = api.playerState === 1;
             document.getElementById('txtPlay').innerText = isPlaying ? L.pause : L.play;
             document.getElementById('icoPlay').innerText = isPlaying ? '⏸' : '▶';
         }
 
-        // Open File logic
         document.getElementById('openBtn').onclick = () => document.getElementById('fileInput').click();
         
         document.getElementById('fileInput').onchange = (e) => {
@@ -152,10 +161,8 @@
             r.readAsArrayBuffer(f);
         };
 
-        // Playback logic
         document.getElementById('playBtn').onclick = () => api.playPause();
 
-        // Metronome logic
         document.getElementById('metroBtn').onclick = function() {
             metronomeEnabled = !metronomeEnabled;
             api.settings.player.metronomeVolume = metronomeEnabled ? 1 : 0;
@@ -169,9 +176,7 @@
         });
 
         api.playerStateChanged.on(() => updateUI());
-        
         window.addEventListener('resize', () => api.render());
-        updateUI();
     </script>
 </body>
 </html>
