@@ -10,41 +10,24 @@
         :root { --bg: #ffffff; --txt: #222222; --btn: #2481cc; --btn-txt: #ffffff; --bar: #f8f8f8; }
         html, body { margin: 0; padding: 0; width: 100%; height: 100dvh; overflow: hidden; background: var(--bg); color: var(--txt); font-family: -apple-system, sans-serif; }
         body { display: flex; flex-direction: column; }
-        
-        /* Layout */
         .header { background: var(--bar); padding: 10px; padding-top: calc(10px + var(--tg-safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(0,0,0,0.1); z-index: 10; }
         #trackList { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--btn); font-size: 14px; background: #fff; }
         #tab-view { flex: 1; overflow: auto; background: #ffffff; -webkit-overflow-scrolling: touch; position: relative; }
-        
-        /* Controls */
         .controls { background: var(--bar); padding: 15px 10px; padding-bottom: calc(15px + var(--tg-safe-area-inset-bottom, 0px)); display: flex; justify-content: center; align-items: center; gap: 20px; border-top: 1px solid rgba(0,0,0,0.1); z-index: 10; }
         .btn-main { background: var(--btn); color: var(--btn-txt); border: none; border-radius: 12px; padding: 10px; min-width: 80px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-        
-        /* Loading Screen */
         #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; text-align: center; padding: 40px; }
         #progress-container { width: 100%; max-width: 250px; height: 12px; background: #e0e0e0; border-radius: 6px; margin: 20px 0 10px 0; overflow: hidden; display: none; }
         #progress-bar { width: 0%; height: 100%; background: var(--btn); transition: width 0.1s linear; }
         .start-btn { padding: 15px 30px; font-size: 18px; font-weight: bold; background: #2481cc; color: white; border: none; border-radius: 12px; cursor: pointer; }
-
-        /* Bright Blue Playback Cursor */
-        .at-cursor-bar { 
-            fill: rgba(36, 129, 204, 0.25) !important; 
-            stroke: #2481cc !important;
-            stroke-width: 2px !important;
-        }
-
-        @media (orientation: landscape) {
-            .controls { padding: 5px; gap: 40px; }
-            .btn-main { min-width: 50px; padding: 5px; }
-            .btn-main span:last-child { display: none; }
-        }
+        .at-cursor-bar { fill: rgba(36, 129, 204, 0.25) !important; stroke: #2481cc !important; stroke-width: 2px !important; }
+        @media (orientation: landscape) { .controls { padding: 5px; gap: 40px; } .btn-main { min-width: 50px; padding: 5px; } .btn-main span:last-child { display: none; } }
     </style>
 </head>
 <body>
 
     <div id="loading">
         <div style="font-size: 50px; margin-bottom: 10px;">🎸</div>
-        <div id="status">Ready to Start?</div>
+        <div id="status">Ready?</div>
         <button id="startBtn" class="start-btn" style="margin-top: 20px;">START APP</button>
         <div id="progress-container"><div id="progress-bar"></div></div>
         <div id="percent-text" style="margin-top: 10px; font-weight: bold; color: #2481cc;"></div>
@@ -54,14 +37,11 @@
         <button onclick="document.getElementById('fileInput').click()" style="background:none; border:none; font-size:24px; cursor:pointer;">📁</button>
         <select id="trackList"><option>No track</option></select>
     </div>
-
     <div id="tab-view"><div id="alphaTab"></div></div>
-
     <div class="controls">
         <button class="btn-main" id="playBtn"><span id="icoPlay" style="font-size: 24px;">▶</span><span>Play</span></button>
         <button class="btn-main" id="metroBtn"><span style="font-size: 24px;">⏲</span><span>Metro</span></button>
     </div>
-    
     <input type="file" id="fileInput" accept=".gp,.gp3,.gp4,.gp5,.gpx" style="display:none">
 
     <script>
@@ -78,14 +58,14 @@
         let api = null;
         let lastBar = -1;
 
-        // Load SoundFont via Fetch
         async function loadSoundFont(url) {
             startBtn.style.display = 'none';
             pContainer.style.display = 'block';
-            status.innerText = "Downloading Sound Engine...";
+            status.innerText = "Downloading HQ Engine...";
 
             try {
                 const response = await fetch(url);
+                if (!response.ok) throw new Error();
                 const reader = response.body.getReader();
                 const contentLength = +response.headers.get('Content-Length');
                 let receivedLength = 0;
@@ -102,34 +82,30 @@
                         pText.innerText = p + '%';
                     }
                 }
+                
+                status.innerText = "Initializing...";
                 const blob = new Blob(chunks, { type: 'application/octet-stream' });
                 initAlphaTab(URL.createObjectURL(blob));
+                
+                setTimeout(() => { if (loader.style.display !== 'none') loader.style.display = 'none'; }, 3000);
             } catch (err) {
-                status.innerText = "Error. Please Refresh.";
+                status.innerText = "Failed to load author's file.";
             }
         }
 
         function initAlphaTab(sf2Url) {
             api = new alphaTab.AlphaTabApi(document.querySelector('#alphaTab'), {
                 importer: { encoding: 'cp1251' },
-                player: { 
-                    enablePlayer: true, 
-                    enableMetronome: true, 
-                    enableCursor: true,
-                    soundFont: sf2Url
-                },
-                display: { layoutMode: 'page' }
+                player: { enablePlayer: true, enableMetronome: true, enableCursor: true, soundFont: sf2Url }
             });
-
-            api.soundFontLoaded.on(() => {
-                status.innerText = "Ready!";
-                setTimeout(() => loader.style.display = 'none', 600);
-            });
-
+            api.soundFontLoaded.on(() => { loader.style.display = 'none'; });
             setupHandlers();
         }
 
-        startBtn.onclick = () => loadSoundFont('https://realist59.github.io/TG_GuitarPro/sound.sf2');
+        startBtn.onclick = () => {
+            // ПРЯМАЯ ССЫЛКА НА АВТОРА (Chaos Bank 12MB)
+            loadSoundFont('https://raw.githubusercontent.com/wrightflyer/SF2_SoundFonts/master/Chaos%20Bank%20V1.9%20(12Mb).sf2');
+        };
 
         function speak(text) {
             if ('speechSynthesis' in window) {
@@ -147,10 +123,7 @@
                 loader.style.display = 'flex';
                 status.innerText = "Loading File...";
                 const r = new FileReader();
-                r.onload = (res) => {
-                    api.load(new Uint8Array(res.target.result));
-                    lastBar = -1; // Reset bar counter on new file
-                };
+                r.onload = (res) => { api.load(new Uint8Array(res.target.result)); lastBar = -1; };
                 r.readAsArrayBuffer(f);
             };
 
@@ -166,11 +139,8 @@
                 api.renderTracks([score.tracks[0]]);
             });
 
-            // FIXED VOICE LOGIC: Only speak if playing
             api.playerPositionChanged.on((args) => {
-                const isPlaying = api.playerState === 1; // 1 means Playing
-                if (!isPlaying) return; 
-
+                if (api.playerState !== 1) return;
                 const currentBar = args.index + 1;
                 if (currentBar !== lastBar && currentBar > 0) {
                     lastBar = currentBar;
@@ -179,10 +149,7 @@
             });
 
             document.getElementById('playBtn').onclick = () => {
-                // Wake up Audio Context for iOS
-                if (api.player.host && api.player.host.audioContext) {
-                    api.player.host.audioContext.resume();
-                }
+                if (api.player.host && api.player.host.audioContext) api.player.host.audioContext.resume();
                 api.playPause();
             };
 
@@ -193,15 +160,8 @@
                 this.style.background = vol > 0 ? '#e74c3c' : '#2481cc';
             };
 
-            document.getElementById('trackList').onchange = (e) => {
-                api.renderTracks([api.score.tracks[parseInt(e.target.value)]]);
-            };
-            
-            api.playerStateChanged.on(() => {
-                const isPlaying = api.playerState === 1;
-                document.getElementById('icoPlay').innerText = isPlaying ? "⏸" : "▶";
-            });
-
+            document.getElementById('trackList').onchange = (e) => api.renderTracks([api.score.tracks[parseInt(e.target.value)]]);
+            api.playerStateChanged.on(() => { document.getElementById('icoPlay').innerText = api.playerState === 1 ? "⏸" : "▶"; });
             window.addEventListener('resize', () => api.render());
         }
     </script>
