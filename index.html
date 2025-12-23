@@ -21,14 +21,12 @@
             font-family: -apple-system, sans-serif;
         }
 
-        /* --- Global UI --- */
         #loading {
             position: fixed; inset: 0; background: var(--bg);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             z-index: 1000; text-align: center;
         }
 
-        /* Progress Bar */
         #progress-wrap {
             width: 220px; height: 10px; background: #222; 
             border-radius: 5px; margin: 20px 0 10px 0; overflow: hidden;
@@ -46,7 +44,6 @@
         #tab-view { flex: 1; overflow: auto; background: #fff; position: relative; }
         #alphaTab-fretboard { height: 120px; background: #1a1a1a; border-top: 2px solid #333; }
 
-        /* --- PORTRAIT MODE --- */
         @media (orientation: portrait) {
             body { display: flex; flex-direction: column; }
             .side-bar { display: none; }
@@ -55,10 +52,9 @@
             .controls-main { display: flex; justify-content: space-around; align-items: center; margin-bottom: 15px; }
             .tempo-slider-container { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
             .tempo-slider-container input { flex: 1; accent-color: var(--accent); }
-            .filename { font-size: 11px; color: #666; text-align: center; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+            .filename { font-size: 10px; color: #666; text-align: center; margin-bottom: 5px; text-transform: uppercase; }
         }
 
-        /* --- LANDSCAPE MODE --- */
         @media (orientation: landscape) {
             body { display: grid; grid-template-columns: 60px 1fr 60px; grid-template-rows: 30px 1fr 100px; height: 100vh; }
             .header, .footer, .tempo-slider-container { display: none; }
@@ -119,7 +115,7 @@
     <div id="alphaTab-fretboard"></div>
 
     <div class="footer">
-        <div class="filename" id="fileNameDisplay">No file selected</div>
+        <div class="filename" id="fileNameDisplay">No file</div>
         <div class="tempo-slider-container">
             <span style="font-size: 14px; font-weight: bold;">♩</span>
             <input type="range" id="tempoRange" min="0.25" max="2" step="0.1" value="1">
@@ -137,6 +133,8 @@
         </div>
     </div>
 
+    <input type="file" id="fileInput" accept=".gp,.gp3,.gp4,.gp5,.gpx" style="display:none">
+
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
@@ -152,7 +150,9 @@
         let isMetro = false;
         let lastBar = -1;
 
-        // Generate Measure Dots
+        // Using a more reliable CDN URL (Sonivox via jsDelivr)
+        const soundfontUrl = 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.7.1/dist/soundfont/sonivox.sf2';
+
         const measureDots = document.getElementById('measureDots');
         for(let i=0; i<60; i++) {
             const dot = document.createElement('div');
@@ -160,20 +160,17 @@
             measureDots.appendChild(dot);
         }
 
-        // --- PRECISE DOWNLOAD LOGIC ---
         async function downloadAndInit() {
             document.getElementById('startBtn').style.display = 'none';
             document.getElementById('progress-wrap').style.display = 'block';
-            status.innerText = "Downloading Sounds...";
-
-            const url = 'https://raw.githubusercontent.com/wrightflyer/SF2_SoundFonts/master/Chaos%20Bank%20V1.9%20(12Mb).sf2';
+            status.innerText = "Connecting to Engine...";
 
             try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error();
+                const response = await fetch(soundfontUrl);
+                if (!response.ok) throw new Error("HTTP " + response.status);
                 
                 const reader = response.body.getReader();
-                const total = +response.headers.get('Content-Length');
+                const total = +response.headers.get('Content-Length') || 2500000; // Approximate if header missing
                 let loaded = 0;
                 let chunks = [];
 
@@ -184,18 +181,18 @@
                     loaded += value.length;
                     
                     const p = Math.floor((loaded / total) * 100);
-                    progressFill.style.width = p + '%';
-                    percentText.innerText = p + '%';
+                    progressFill.style.width = Math.min(p, 100) + '%';
+                    percentText.innerText = Math.min(p, 100) + '%';
+                    status.innerText = "Downloading Sounds...";
                 }
 
-                status.innerText = "Initializing Engine...";
+                status.innerText = "Initializing...";
                 const blob = new Blob(chunks);
-                const sf2Url = URL.createObjectURL(blob);
-                
-                initAlphaTab(sf2Url);
+                initAlphaTab(URL.createObjectURL(blob));
 
             } catch (e) {
-                status.innerText = "Download Failed. Refresh.";
+                status.innerText = "Connection Failed. Retrying...";
+                setTimeout(() => { location.reload(); }, 2000);
             }
         }
 
@@ -213,14 +210,13 @@
                 setTimeout(() => { loader.style.display = 'none'; }, 500);
             });
 
-            // Force hide if stuck
-            setTimeout(() => { if(loader.style.display !== 'none') loader.style.display = 'none'; }, 8000);
-
+            // Auto-hide fallback
+            setTimeout(() => { if(loader.style.display !== 'none') loader.style.display = 'none'; }, 10000);
             setupEvents();
         }
 
         function handlePlay() {
-            if (api.player.host && api.player.host.audioContext) api.player.host.audioContext.resume();
+            if (api && api.player.host && api.player.host.audioContext) api.player.host.audioContext.resume();
             api.playPause();
         }
 
@@ -254,7 +250,6 @@
                 dots.forEach(d => d.classList.remove('active'));
                 if(dots[args.index]) dots[args.index].classList.add('active');
 
-                // Voice Announcer
                 const bar = args.index + 1;
                 if(bar !== lastBar) {
                     lastBar = bar;
