@@ -5,39 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>GP Player</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/alphaTab/1.7.1/alphaTab.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.7.1/dist/alphaTab.js"></script>
     <style>
-        :root { --bg: #000; --text: #fff; --accent: #2481cc; }
-        body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+        :root { --bg: #000; --accent: #2481cc; }
+        body { margin: 0; background: var(--bg); color: #fff; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; height: 100dvh; }
         #loading { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
-        .header { height: 50px; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; border-bottom: 1px solid #222; }
-        #tab-view { flex: 1; overflow: auto; background: #fff; }
-        #alphaTab-fretboard { height: 100px; background: #1a1a1a; display: none; }
+        .header { height: 50px; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; border-bottom: 1px solid #222; background: #111; }
+        #tab-view { flex: 1; overflow: auto; background: #fff; -webkit-overflow-scrolling: touch; }
         .footer { padding: 10px; padding-bottom: calc(10px + var(--tg-safe-area-inset-bottom, 0px)); background: #111; }
         .icon-btn { background: #222; border: none; color: #fff; padding: 10px; border-radius: 8px; font-size: 20px; }
         #fileInput { display: none; }
+        select { background: #222; color: #fff; border: 1px solid #444; border-radius: 5px; padding: 5px; max-width: 130px; }
     </style>
 </head>
 <body>
 
     <div id="loading">
-        <div id="status">INITIALIZING...</div>
-        <button id="startBtn" onclick="initApp()" style="margin-top:20px; padding:12px 30px; background:var(--accent); color:#fff; border:none; border-radius:20px; font-weight:bold;">START</button>
+        <div id="status">TAP START TO INITIALIZE</div>
+        <button id="startBtn" onclick="initApp()" style="margin-top:20px; padding:15px 40px; background:var(--accent); color:#fff; border:none; border-radius:25px; font-weight:bold; font-size: 18px;">START</button>
     </div>
 
     <div class="header">
         <button class="icon-btn" onclick="openFile()">📁</button>
-        <select id="trackList" style="background:none; border:none; color:#fff; font-size:14px; width:120px;"></select>
+        <select id="trackList"></select>
         <button class="icon-btn" onclick="toggleFretboard()">🎸</button>
     </div>
 
     <div id="tab-view"><div id="alphaTab"></div></div>
-    <div id="alphaTab-fretboard"></div>
+    <div id="alphaTab-fretboard" style="height: 100px; background: #1a1a1a; display: none;"></div>
 
     <div class="footer">
         <div style="display:flex; justify-content: space-around; align-items:center;">
-            <input type="range" id="tempoRange" min="0.25" max="2" step="0.1" value="1" style="width:70px;">
-            <button class="icon-btn" id="playBtn" onclick="handlePlay()" style="width:60px; height:60px; border-radius:50%; background:var(--accent);">▶</button>
+            <button class="icon-btn" id="playBtn" onclick="handlePlay()" style="width:60px; height:60px; border-radius:50%; background:var(--accent); font-size: 25px;">▶</button>
             <button class="icon-btn" onclick="toggleMetro()">⏳</button>
         </div>
     </div>
@@ -46,48 +45,61 @@
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.ready(); tg.expand();
+        if(tg) { tg.ready(); tg.expand(); }
 
         let api = null;
         let isMetro = false;
-        // Самый легкий файл звуков
         const sf2Url = 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.7.1/dist/soundfont/sonivox.sf2';
 
         function initApp() {
-            document.getElementById('startBtn').style.display = 'none';
-            document.getElementById('status').innerText = "CONNECTING ENGINE...";
+            const status = document.getElementById('status');
+            const startBtn = document.getElementById('startBtn');
+            
+            startBtn.style.display = 'none';
+            status.innerText = "LOADING ENGINE...";
 
             try {
+                // Проверяем, загрузилась ли библиотека вообще
+                if (typeof alphaTab === 'undefined') {
+                    throw new Error("AlphaTab library not loaded. Check internet.");
+                }
+
                 const el = document.querySelector('#alphaTab');
                 api = new alphaTab.AlphaTabApi(el, {
                     player: { enablePlayer: true, soundFont: sf2Url },
-                    display: { layoutMode: 'fluid' }
+                    display: { layoutMode: 'fluid', upscale: 2 }
                 });
 
-                new alphaTab.gui.backings.Fretboard(document.querySelector('#alphaTab-fretboard'), api);
+                // Инициализация грифа
+                const fretEl = document.querySelector('#alphaTab-fretboard');
+                new alphaTab.gui.backings.Fretboard(fretEl, api);
 
+                // События
                 api.soundFontLoaded.on(() => {
                     document.getElementById('loading').style.display = 'none';
                 });
 
-                // Если звуки грузятся слишком долго, все равно пускаем через 5 секунд
+                // Авто-вход через 4 сек на случай медленного интернета
                 setTimeout(() => {
-                    if(document.getElementById('loading').style.display !== 'none') {
-                        document.getElementById('loading').style.display = 'none';
+                    const loader = document.getElementById('loading');
+                    if(loader.style.display !== 'none') {
+                        loader.style.display = 'none';
                     }
-                }, 5000);
+                }, 4000);
 
                 setupEvents();
 
             } catch (e) {
-                alert("Critical Error: Use Safari/Chrome");
+                status.innerText = "ERR: " + e.message;
                 console.error(e);
             }
         }
 
         function handlePlay() {
-            if (api.player.host && api.player.host.audioContext) api.player.host.audioContext.resume();
-            api.playPause();
+            if (api && api.player.host && api.player.host.audioContext) {
+                api.player.host.audioContext.resume();
+            }
+            if(api) api.playPause();
         }
 
         function setupEvents() {
@@ -106,14 +118,14 @@
             const input = document.getElementById('fileInput');
             input.onchange = async (e) => {
                 const file = e.target.files[0];
-                if (!file) return;
+                if (!file || !api) return;
                 
                 document.getElementById('loading').style.display = 'flex';
-                document.getElementById('status').innerText = "OPENING...";
+                document.getElementById('status').innerText = "RENDERING...";
 
                 try {
-                    const data = new Uint8Array(await file.arrayBuffer());
-                    api.load(data);
+                    const buffer = await file.arrayBuffer();
+                    api.load(new Uint8Array(buffer));
                     api.renderFinished.on(() => {
                         setTimeout(() => {
                             document.getElementById('loading').style.display = 'none';
@@ -122,7 +134,7 @@
                     }, { once: true });
                 } catch (err) {
                     document.getElementById('loading').style.display = 'none';
-                    alert("FILE ERROR");
+                    alert("LOAD FAILED");
                 }
             };
             input.click();
@@ -131,10 +143,11 @@
         function toggleFretboard() {
             const f = document.querySelector('#alphaTab-fretboard');
             f.style.display = f.style.display === 'block' ? 'none' : 'block';
-            api.render();
+            if(api) api.render();
         }
 
         function toggleMetro() {
+            if(!api) return;
             isMetro = !isMetro;
             api.settings.player.metronomeVolume = isMetro ? 1 : 0;
             api.updateSettings();
@@ -143,5 +156,4 @@
     </script>
 </body>
 </html>
-
 
