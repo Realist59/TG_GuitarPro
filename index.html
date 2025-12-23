@@ -3,16 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GP Pro Player</title>
+    <title>GP Pro Player Fixed</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.7.1/dist/alphaTab.js"></script>
     <style>
         :root {
-            --bg: #000000;
-            --bar-bg: rgba(20, 20, 20, 0.95);
+            --bg: #0b0b0b;
+            --bar-bg: rgba(20, 20, 20, 0.98);
             --text: #ffffff;
             --accent: #2481cc;
-            --btn-bg: rgba(255, 255, 255, 0.1);
         }
 
         html, body {
@@ -24,112 +23,65 @@
         #loading {
             position: fixed; inset: 0; background: var(--bg);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 1000; text-align: center;
+            z-index: 1000; text-align: center; padding: 20px;
         }
 
         #progress-wrap {
-            width: 220px; height: 10px; background: #222; 
-            border-radius: 5px; margin: 20px 0 10px 0; overflow: hidden;
-            display: none; border: 1px solid #333;
+            width: 80%; max-width: 300px; height: 8px; background: #222; 
+            border-radius: 4px; margin: 20px 0; overflow: hidden; display: none;
         }
-        #progress-fill { width: 0%; height: 100%; background: var(--accent); transition: width 0.1s linear; }
+        #progress-fill { width: 0%; height: 100%; background: var(--accent); transition: width 0.2s; }
 
         .measure-bar {
-            height: 30px; background: #222; display: flex; align-items: center;
-            padding: 0 10px; gap: 5px; overflow: hidden; border-bottom: 1px solid #333;
+            height: 4px; background: #222; display: flex; width: 100%;
         }
-        .measure-dot { width: 4px; height: 12px; background: #444; border-radius: 2px; }
-        .measure-dot.active { background: var(--accent); height: 18px; }
+        .measure-progress { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; }
 
-        #tab-view { flex: 1; overflow: auto; background: #fff; position: relative; }
-        #alphaTab-fretboard { height: 120px; background: #1a1a1a; border-top: 2px solid #333; }
+        #tab-view { flex: 1; overflow: auto; background: #fff; }
+        #alphaTab-fretboard { height: 100px; background: #1a1a1a; display: none; }
 
         @media (orientation: portrait) {
             body { display: flex; flex-direction: column; }
-            .side-bar { display: none; }
-            .header { height: 50px; background: var(--bar-bg); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; }
-            .footer { background: var(--bar-bg); padding: 10px 15px; padding-bottom: calc(10px + var(--tg-safe-area-inset-bottom, 0px)); }
-            .controls-main { display: flex; justify-content: space-around; align-items: center; margin-bottom: 15px; }
-            .tempo-slider-container { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-            .tempo-slider-container input { flex: 1; accent-color: var(--accent); }
-            .filename { font-size: 10px; color: #666; text-align: center; margin-bottom: 5px; text-transform: uppercase; }
+            .header { height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; background: var(--bar-bg); }
+            .footer { padding: 15px; background: var(--bar-bg); padding-bottom: calc(15px + var(--tg-safe-area-inset-bottom, 0px)); }
         }
 
         @media (orientation: landscape) {
-            body { display: grid; grid-template-columns: 60px 1fr 60px; grid-template-rows: 30px 1fr 100px; height: 100vh; }
-            .header, .footer, .tempo-slider-container { display: none; }
-            .measure-bar { grid-column: 1 / 4; }
-            #tab-view { grid-column: 2 / 3; grid-row: 2 / 3; }
-            #alphaTab-fretboard { grid-column: 1 / 4; grid-row: 3 / 4; height: 100px; }
-            .side-bar { display: flex; flex-direction: column; align-items: center; justify-content: space-around; background: var(--bar-bg); padding: 10px 0; }
-            .side-bar.left { grid-column: 1 / 2; grid-row: 2 / 3; border-right: 1px solid #333; }
-            .side-bar.right { grid-column: 3 / 4; grid-row: 2 / 3; border-left: 1px solid #333; }
+            body { display: grid; grid-template-columns: 60px 1fr; grid-template-rows: 1fr 100px; }
+            .header { grid-column: 1; grid-row: 1/3; flex-direction: column; display: flex; padding: 10px 0; background: var(--bar-bg); border-right: 1px solid #333; }
+            #tab-view { grid-column: 2; grid-row: 1; }
+            #alphaTab-fretboard { grid-column: 2; grid-row: 2; }
+            .footer { display: none; }
         }
 
-        .icon-btn { background: none; border: none; color: var(--text); font-size: 24px; cursor: pointer; padding: 8px; border-radius: 8px; transition: 0.2s; }
-        .icon-btn:active { color: var(--accent); opacity: 0.7; }
-        .at-cursor-bar { background: rgba(36, 129, 204, 0.2) !important; border-left: 2px solid var(--accent) !important; }
+        .icon-btn { background: rgba(255,255,255,0.1); border: none; color: #fff; padding: 10px; border-radius: 8px; cursor: pointer; }
+        .play-btn { background: var(--accent); width: 60px; height: 60px; border-radius: 50%; font-size: 24px; }
     </style>
 </head>
 <body>
 
     <div id="loading">
-        <div style="font-size: 50px;">🎸</div>
-        <div id="status">Ready?</div>
-        
+        <div style="font-size: 40px; margin-bottom: 10px;">🎸</div>
+        <div id="status">Ready to Rock?</div>
         <div id="progress-wrap"><div id="progress-fill"></div></div>
-        <div id="percent" style="font-weight: bold; color: #2481cc; margin-top: 5px;"></div>
-        
-        <button id="startBtn" style="margin-top:20px; padding:12px 35px; border-radius:25px; border:none; background:var(--accent); color:#fff; font-weight:bold; cursor:pointer;">START APP</button>
+        <button id="startBtn" onclick="initApp()" style="padding: 12px 30px; border-radius: 20px; border:none; background: var(--accent); color: white; font-weight: bold;">START PLAYER</button>
+        <div id="error-log" style="font-size: 10px; color: #666; margin-top: 15px;"></div>
     </div>
-
-    <div class="measure-bar" id="measureDots"></div>
 
     <div class="header">
         <button class="icon-btn" onclick="openFile()">📁</button>
-        <select id="trackList" style="background:none; border:none; color:#fff; font-weight:bold; max-width: 150px;"></select>
-        <div style="display:flex; gap:10px;">
-            <button class="icon-btn" onclick="toggleFretboard()">🎸</button>
-            <button class="icon-btn">⚙</button>
-        </div>
-    </div>
-
-    <div class="side-bar left">
-        <button class="icon-btn" onclick="openFile()">📁</button>
-        <button class="icon-btn">☰</button>
         <button class="icon-btn" onclick="toggleFretboard()">🎸</button>
-        <button class="icon-btn">⚙</button>
-        <button class="icon-btn">ⓘ</button>
+        <button class="icon-btn" onclick="toggleMetro()">⏳</button>
     </div>
 
     <div id="tab-view"><div id="alphaTab"></div></div>
-
-    <div class="side-bar right">
-        <button class="icon-btn" id="playBtnL" onclick="handlePlay()">▶</button>
-        <button class="icon-btn">⏮</button>
-        <button class="icon-btn">⏭</button>
-        <button class="icon-btn">♩</button>
-        <button class="icon-btn" id="metroBtnL" onclick="toggleMetro()">⏳</button>
-    </div>
-
     <div id="alphaTab-fretboard"></div>
 
     <div class="footer">
-        <div class="filename" id="fileNameDisplay">No file</div>
-        <div class="tempo-slider-container">
-            <span style="font-size: 14px; font-weight: bold;">♩</span>
-            <input type="range" id="tempoRange" min="0.25" max="2" step="0.1" value="1">
-            <span id="tempoText" style="font-size: 12px; min-width: 45px; font-family: monospace;">x 1.0</span>
-        </div>
-        <div class="controls-main">
-            <button class="icon-btn">⏮</button>
-            <button class="icon-btn" id="playBtnP" onclick="handlePlay()" style="font-size: 44px;">▶</button>
-            <button class="icon-btn">⏭</button>
-        </div>
-        <div style="display:flex; justify-content: space-around; opacity: 0.6;">
-            <button class="icon-btn">🔄</button>
-            <button class="icon-btn" id="metroBtnP" onclick="toggleMetro()">⏳</button>
-            <button class="icon-btn">🎧</button>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
+            <input type="range" id="tempoRange" min="0.25" max="2" step="0.1" value="1" style="width: 100px;">
+            <button class="icon-btn play-btn" id="playBtn" onclick="handlePlay()">▶</button>
+            <div id="tempoDisplay">1.0x</div>
         </div>
     </div>
 
@@ -137,162 +89,104 @@
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.ready(); tg.expand();
-
-        const el = document.querySelector('#alphaTab');
-        const fretEl = document.querySelector('#alphaTab-fretboard');
-        const status = document.getElementById('status');
-        const progressFill = document.getElementById('progress-fill');
-        const percentText = document.getElementById('percent');
-        const loader = document.getElementById('loading');
+        tg.ready();
+        tg.expand();
 
         let api = null;
         let isMetro = false;
-        let lastBar = -1;
+        // Запасной URL для звуков
+        const sf2Url = 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.7.1/dist/soundfont/sonivox.sf2';
 
-        // Using a more reliable CDN URL (Sonivox via jsDelivr)
-        const soundfontUrl = 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.7.1/dist/soundfont/sonivox.sf2';
-
-        const measureDots = document.getElementById('measureDots');
-        for(let i=0; i<60; i++) {
-            const dot = document.createElement('div');
-            dot.className = 'measure-dot';
-            measureDots.appendChild(dot);
-        }
-
-        async function downloadAndInit() {
+        async function initApp() {
             document.getElementById('startBtn').style.display = 'none';
             document.getElementById('progress-wrap').style.display = 'block';
-            status.innerText = "Connecting to Engine...";
+            const status = document.getElementById('status');
+            const fill = document.getElementById('progress-fill');
+
+            status.innerText = "Loading Engine...";
 
             try {
-                const response = await fetch(soundfontUrl);
-                if (!response.ok) throw new Error("HTTP " + response.status);
-                
-                const reader = response.body.getReader();
-                const total = +response.headers.get('Content-Length') || 2500000; // Approximate if header missing
-                let loaded = 0;
-                let chunks = [];
+                api = new alphaTab.AlphaTabApi(document.querySelector('#alphaTab'), {
+                    player: {
+                        enablePlayer: true,
+                        soundFont: sf2Url,
+                        enableCursor: true
+                    },
+                    display: { layoutMode: 'fluid', upscale: 2 }
+                });
 
-                while(true) {
-                    const {done, value} = await reader.read();
-                    if (done) break;
-                    chunks.push(value);
-                    loaded += value.length;
-                    
-                    const p = Math.floor((loaded / total) * 100);
-                    progressFill.style.width = Math.min(p, 100) + '%';
-                    percentText.innerText = Math.min(p, 100) + '%';
-                    status.innerText = "Downloading Sounds...";
-                }
+                // Визуальный гриф
+                new alphaTab.gui.backings.Fretboard(document.querySelector('#alphaTab-fretboard'), api);
 
-                status.innerText = "Initializing...";
-                const blob = new Blob(chunks);
-                initAlphaTab(URL.createObjectURL(blob));
+                api.soundFontLoadStatus.on((args) => {
+                    const p = Math.floor((args.loaded / args.total) * 100);
+                    fill.style.width = p + '%';
+                    status.innerText = `Loading Sounds: ${p}%`;
+                });
 
-            } catch (e) {
-                status.innerText = "Connection Failed. Retrying...";
-                setTimeout(() => { location.reload(); }, 2000);
+                api.soundFontLoaded.on(() => {
+                    status.innerText = "Complete!";
+                    setTimeout(() => document.getElementById('loading').style.display = 'none', 500);
+                });
+
+                // Если загрузка звуков зависнет на 15 секунд - пускаем так
+                setTimeout(() => {
+                    if(document.getElementById('loading').style.display !== 'none') {
+                        document.getElementById('loading').style.display = 'none';
+                        console.warn("Soundfont timeout - starting without sound");
+                    }
+                }, 15000);
+
+                setupEvents();
+
+            } catch (err) {
+                document.getElementById('error-log').innerText = err.message;
+                status.innerText = "Offline Mode Enabled";
+                setTimeout(() => document.getElementById('loading').style.display = 'none', 2000);
             }
         }
 
-        function initAlphaTab(sf2Url) {
-            api = new alphaTab.AlphaTabApi(el, {
-                importer: { encoding: 'cp1251' },
-                player: { enablePlayer: true, enableCursor: true, soundFont: sf2Url },
-                display: { layoutMode: 'page', scrollElement: '#tab-view' }
-            });
-
-            new alphaTab.gui.backings.Fretboard(fretEl, api);
-
-            api.soundFontLoaded.on(() => {
-                status.innerText = "Ready!";
-                setTimeout(() => { loader.style.display = 'none'; }, 500);
-            });
-
-            // Auto-hide fallback
-            setTimeout(() => { if(loader.style.display !== 'none') loader.style.display = 'none'; }, 10000);
-            setupEvents();
-        }
-
         function handlePlay() {
-            if (api && api.player.host && api.player.host.audioContext) api.player.host.audioContext.resume();
+            if (api.player.host && api.player.host.audioContext) {
+                api.player.host.audioContext.resume();
+            }
             api.playPause();
         }
 
         function setupEvents() {
-            api.scoreLoaded.on((s) => {
-                const tl = document.getElementById('trackList');
-                tl.innerHTML = '';
-                s.tracks.forEach((t, i) => {
-                    const o = document.createElement('option');
-                    o.value = i; o.innerText = t.name || `Track ${i+1}`;
-                    tl.appendChild(o);
-                });
-                api.renderTracks([s.tracks[0]]);
-            });
-
             api.playerStateChanged.on(() => {
-                const ico = api.playerState === 1 ? "⏸" : "▶";
-                document.getElementById('playBtnP').innerText = ico;
-                document.getElementById('playBtnL').innerText = ico;
+                document.getElementById('playBtn').innerText = api.playerState === 1 ? "⏸" : "▶";
             });
 
             document.getElementById('tempoRange').oninput = (e) => {
                 const val = parseFloat(e.target.value);
                 api.playbackSpeed = val;
-                document.getElementById('tempoText').innerText = `x ${val.toFixed(1)}`;
-            };
-
-            api.playerPositionChanged.on((args) => {
-                if(api.playerState !== 1) return;
-                const dots = measureDots.querySelectorAll('.measure-dot');
-                dots.forEach(d => d.classList.remove('active'));
-                if(dots[args.index]) dots[args.index].classList.add('active');
-
-                const bar = args.index + 1;
-                if(bar !== lastBar) {
-                    lastBar = bar;
-                    if ('speechSynthesis' in window) {
-                        window.speechSynthesis.cancel();
-                        const msg = new SpeechSynthesisUtterance("Bar " + bar);
-                        msg.lang = 'en-US'; msg.rate = 1.4;
-                        window.speechSynthesis.speak(msg);
-                    }
-                }
-            });
-
-            document.getElementById('trackList').onchange = (e) => {
-                api.renderTracks([api.score.tracks[parseInt(e.target.value)]]);
+                document.getElementById('tempoDisplay').innerText = val.toFixed(1) + 'x';
             };
         }
 
         function openFile() {
             const input = document.getElementById('fileInput');
             input.onchange = (e) => {
-                const f = e.target.files[0];
-                if(f) {
-                    api.load(f);
-                    document.getElementById('fileNameDisplay').innerText = f.name;
-                }
+                const file = e.target.files[0];
+                if (file) api.load(file);
             };
             input.click();
+        }
+
+        function toggleFretboard() {
+            const fb = document.getElementById('alphaTab-fretboard');
+            fb.style.display = fb.style.display === 'block' ? 'none' : 'block';
+            api.render();
         }
 
         function toggleMetro() {
             isMetro = !isMetro;
             api.settings.player.metronomeVolume = isMetro ? 1 : 0;
             api.updateSettings();
-            document.getElementById('metroBtnP').style.color = isMetro ? '#2481cc' : '#fff';
+            tg.HapticFeedback.impactOccurred('light');
         }
-
-        function toggleFretboard() {
-            const fb = document.getElementById('alphaTab-fretboard');
-            fb.style.display = fb.style.display === 'none' ? 'block' : 'none';
-            api.render();
-        }
-
-        document.getElementById('startBtn').onclick = downloadAndInit;
     </script>
 </body>
 </html>
+
