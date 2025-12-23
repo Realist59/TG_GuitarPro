@@ -5,161 +5,115 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>GP Player</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.7.1/dist/alphaTab.js"></script>
     <style>
-        :root {
-            --bg: #000000;
-            --bar: #111111;
-            --accent: #2481cc;
-            --text: #ffffff;
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            background: var(--bg);
-            color: var(--text);
-            font-family: -apple-system, system-ui, sans-serif;
-            height: 100dvh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        #loading-screen {
-            position: fixed;
-            inset: 0;
-            background: var(--bg);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-
-        .loader {
-            width: 40px;
-            height: 40px;
-            border: 3px solid #333;
-            border-top: 3px solid var(--accent);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        .header {
-            height: 50px;
-            background: var(--bar);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 15px;
-            border-bottom: 1px solid #222;
-        }
-
-        .content {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #151515;
-            position: relative;
-        }
-
-        .footer {
-            height: 80px;
-            background: var(--bar);
-            display: flex;
-            align-items: center;
-            justify-content: space-around;
-            padding-bottom: var(--tg-safe-area-inset-bottom);
-            border-top: 1px solid #222;
-        }
-
-        .btn {
-            background: #222;
-            border: none;
-            color: var(--text);
-            padding: 12px;
-            border-radius: 12px;
-            font-size: 20px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: 0.2s;
-        }
-
-        .btn:active {
-            transform: scale(0.95);
-            background: #333;
-        }
-
-        .btn-main {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: var(--accent);
-            font-size: 24px;
-        }
-
-        #file-name {
-            font-size: 12px;
-            color: #888;
-            position: absolute;
-            top: 10px;
-        }
-
-        input[type="file"] { display: none; }
+        :root { --bg: #000; --bar: #111; --accent: #2481cc; --text: #fff; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+        #loading { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
+        .header { height: 50px; background: var(--bar); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; border-bottom: 1px solid #222; }
+        #tab-view { flex: 1; overflow: auto; background: #fff; -webkit-overflow-scrolling: touch; }
+        .footer { height: 90px; background: var(--bar); display: flex; align-items: center; justify-content: space-around; padding-bottom: var(--tg-safe-area-inset-bottom); }
+        .btn { background: #222; border: none; color: #fff; padding: 10px; border-radius: 10px; font-size: 20px; }
+        .btn-main { width: 65px; height: 65px; border-radius: 50%; background: var(--accent); font-size: 24px; }
+        #file-input { display: none; }
+        select { background: #222; color: #fff; border: none; padding: 5px; border-radius: 5px; width: 110px; font-size: 13px; }
+        #fretboard { height: 100px; background: #1a1a1a; display: none; border-top: 1px solid #333; }
     </style>
 </head>
 <body>
 
-    <div id="loading-screen">
-        <div class="loader"></div>
-        <div id="load-status">INITIALIZING</div>
+    <div id="loading">
+        <button id="start-btn" onclick="initApp()" style="padding:15px 45px; border-radius:30px; border:none; background:var(--accent); color:#fff; font-weight:bold; font-size:16px;">START PLAYER</button>
     </div>
 
     <div class="header">
         <button class="btn" onclick="document.getElementById('file-input').click()">📁</button>
-        <div id="app-title">GP PLAYER</div>
-        <button class="btn">⚙️</button>
+        <select id="track-list"></select>
+        <button class="btn" onclick="toggleFret()">🎸</button>
     </div>
 
-    <div class="content">
-        <div id="file-name">NO FILE LOADED</div>
-        <div id="viewer-placeholder">READY TO OPEN .GP FILE</div>
-    </div>
+    <div id="tab-view"><div id="alphaTab"></div></div>
+    <div id="fretboard"></div>
 
     <div class="footer">
-        <button class="btn">⏮</button>
-        <button class="btn btn-main">▶</button>
-        <button class="btn">⏭</button>
+        <input type="range" id="tempo" min="0.25" max="2" step="0.1" value="1" style="width:70px;">
+        <button class="btn btn-main" id="play-btn" onclick="handlePlay()">▶</button>
+        <button class="btn" onclick="toggleMetro()">⏳</button>
     </div>
 
     <input type="file" id="file-input" accept=".gp,.gp3,.gp4,.gp5,.gpx">
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
+        tg.ready(); tg.expand();
 
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                document.getElementById('loading-screen').style.display = 'none';
-            }, 1000);
-        });
+        let api = null;
+        let metro = false;
+        const sf2 = 'https://realist59.github.io/TG_GuitarPro/sound.sf2';
 
-        document.getElementById('file-input').onchange = (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                document.getElementById('file-name').innerText = file.name.toUpperCase();
-                document.getElementById('viewer-placeholder').innerText = "FILE DETECTED";
-                if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-            }
-        };
+        function initApp() {
+            const el = document.getElementById('alphaTab');
+            api = new alphaTab.AlphaTabApi(el, {
+                player: { enablePlayer: true, soundFont: sf2 },
+                display: { layoutMode: 'fluid', upscale: 2 }
+            });
+
+            new alphaTab.gui.backings.Fretboard(document.getElementById('fretboard'), api);
+
+            api.soundFontLoaded.on(() => {
+                document.getElementById('loading').style.display = 'none';
+            });
+
+            api.scoreLoaded.on(s => {
+                const sel = document.getElementById('track-list');
+                sel.innerHTML = s.tracks.map((t, i) => `<option value="${i}">${t.name || 'Track '+(i+1)}</option>`).join('');
+                api.renderTracks([s.tracks[0]]);
+            });
+
+            api.playerStateChanged.on(() => {
+                document.getElementById('play-btn').innerText = api.playerState === 1 ? '⏸' : '▶';
+            });
+
+            api.renderFinished.on(() => {
+                const loader = document.getElementById('loading');
+                if(loader.style.display !== 'none') loader.style.display = 'none';
+            });
+
+            document.getElementById('file-input').onchange = async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    document.getElementById('loading').style.display = 'flex';
+                    const data = new Uint8Array(await file.arrayBuffer());
+                    api.load(data);
+                }
+            };
+
+            document.getElementById('track-list').onchange = (e) => {
+                api.renderTracks([api.score.tracks[e.target.value]]);
+            };
+
+            document.getElementById('tempo').oninput = (e) => {
+                api.playbackSpeed = parseFloat(e.target.value);
+            };
+        }
+
+        function handlePlay() {
+            if (api.player.host && api.player.host.audioContext) api.player.host.audioContext.resume();
+            api.playPause();
+        }
+
+        function toggleFret() {
+            const f = document.getElementById('fretboard');
+            f.style.display = f.style.display === 'block' ? 'none' : 'block';
+            api.render();
+        }
+
+        function toggleMetro() {
+            metro = !metro;
+            api.settings.player.metronomeVolume = metro ? 1 : 0;
+            api.updateSettings();
+            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        }
     </script>
 </body>
 </html>
-
