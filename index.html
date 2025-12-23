@@ -3,204 +3,163 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GP Pro Player</title>
+    <title>GP Player</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.7.1/dist/alphaTab.js"></script>
     <style>
         :root {
             --bg: #000000;
-            --bar-bg: rgba(20, 20, 20, 0.98);
-            --text: #ffffff;
+            --bar: #111111;
             --accent: #2481cc;
+            --text: #ffffff;
         }
 
-        html, body {
-            margin: 0; padding: 0; width: 100%; height: 100dvh;
-            overflow: hidden; background: var(--bg); color: var(--text);
-            font-family: -apple-system, sans-serif;
-            display: flex; flex-direction: column;
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, system-ui, sans-serif;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
-        #loading {
-            position: fixed; inset: 0; background: var(--bg);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 1000; text-align: center;
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
         }
 
-        #progress-wrap {
-            width: 220px; height: 6px; background: #222; 
-            border-radius: 3px; margin: 20px 0; overflow: hidden; display: none;
+        .loader {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #333;
+            border-top: 3px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
         }
-        #progress-fill { width: 0%; height: 100%; background: var(--accent); transition: width 0.2s; }
 
-        .header { height: 55px; background: var(--bar-bg); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; border-bottom: 1px solid #222; }
-        #tab-view { flex: 1; overflow: auto; background: #fff; -webkit-overflow-scrolling: touch; }
-        .footer { background: var(--bar-bg); padding: 15px; padding-bottom: calc(15px + var(--tg-safe-area-inset-bottom, 0px)); }
-        
-        .icon-btn { background: rgba(255,255,255,0.05); border: none; color: var(--text); font-size: 22px; padding: 10px; border-radius: 10px; }
-        #fileInput { display: none; }
-        select { background: #1a1a1a; color: #fff; border: 1px solid #333; padding: 5px; border-radius: 5px; max-width: 140px; }
-        
-        #alphaTab-fretboard { height: 100px; background: #1a1a1a; border-top: 1px solid #333; display: none; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .header {
+            height: 50px;
+            background: var(--bar);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            border-bottom: 1px solid #222;
+        }
+
+        .content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #151515;
+            position: relative;
+        }
+
+        .footer {
+            height: 80px;
+            background: var(--bar);
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding-bottom: var(--tg-safe-area-inset-bottom);
+            border-top: 1px solid #222;
+        }
+
+        .btn {
+            background: #222;
+            border: none;
+            color: var(--text);
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+            background: #333;
+        }
+
+        .btn-main {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--accent);
+            font-size: 24px;
+        }
+
+        #file-name {
+            font-size: 12px;
+            color: #888;
+            position: absolute;
+            top: 10px;
+        }
+
+        input[type="file"] { display: none; }
     </style>
 </head>
 <body>
 
-    <div id="loading">
-        <div style="font-size: 50px; margin-bottom: 15px;">🎸</div>
-        <div id="status">READY TO ROCK</div>
-        <div id="progress-wrap"><div id="progress-fill"></div></div>
-        <button id="startBtn" onclick="initApp()" style="margin-top:20px; padding:15px 40px; border-radius:30px; border:none; background:var(--accent); color:#fff; font-weight:bold; font-size: 16px;">START ENGINE</button>
+    <div id="loading-screen">
+        <div class="loader"></div>
+        <div id="load-status">INITIALIZING</div>
     </div>
 
     <div class="header">
-        <button class="icon-btn" onclick="openFile()">📁</button>
-        <select id="trackList"></select>
-        <button class="icon-btn" onclick="toggleFretboard()">🎸</button>
+        <button class="btn" onclick="document.getElementById('file-input').click()">📁</button>
+        <div id="app-title">GP PLAYER</div>
+        <button class="btn">⚙️</button>
     </div>
 
-    <div id="tab-view"><div id="alphaTab"></div></div>
-    <div id="alphaTab-fretboard"></div>
+    <div class="content">
+        <div id="file-name">NO FILE LOADED</div>
+        <div id="viewer-placeholder">READY TO OPEN .GP FILE</div>
+    </div>
 
     <div class="footer">
-        <div style="display:flex; justify-content: space-between; align-items: center;">
-            <input type="range" id="tempoRange" min="0.25" max="2" step="0.1" value="1" style="width: 70px;">
-            <button class="icon-btn" id="playBtn" onclick="handlePlay()" style="width:65px; height:65px; border-radius:50%; background:var(--accent); font-size: 28px;">▶</button>
-            <button class="icon-btn" id="metroBtn" onclick="toggleMetro()">⏳</button>
-        </div>
+        <button class="btn">⏮</button>
+        <button class="btn btn-main">▶</button>
+        <button class="btn">⏭</button>
     </div>
 
-    <input type="file" id="fileInput" accept=".gp,.gp3,.gp4,.gp5,.gpx">
+    <input type="file" id="file-input" accept=".gp,.gp3,.gp4,.gp5,.gpx">
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.ready(); tg.expand();
+        tg.ready();
+        tg.expand();
 
-        let api = null;
-        let isMetro = false;
-        // Ссылка на ВАШ файл звуков в репозитории
-        const sf2Url = 'https://realist59.github.io/TG_GuitarPro/sound.sf2';
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('loading-screen').style.display = 'none';
+            }, 1000);
+        });
 
-        async function initApp() {
-            document.getElementById('startBtn').style.display = 'none';
-            document.getElementById('progress-wrap').style.display = 'block';
-            const status = document.getElementById('status');
-            
-            status.innerText = "LOADING SOUND ENGINE...";
-
-            try {
-                const el = document.querySelector('#alphaTab');
-                api = new alphaTab.AlphaTabApi(el, {
-                    player: { 
-                        enablePlayer: true, 
-                        soundFont: sf2Url,
-                        enableCursor: true 
-                    },
-                    display: { 
-                        layoutMode: 'fluid', 
-                        upscale: 2 
-                    }
-                });
-
-                // Инициализация грифа
-                new alphaTab.gui.backings.Fretboard(document.querySelector('#alphaTab-fretboard'), api);
-
-                // Отслеживание загрузки ВАШЕГО sound.sf2
-                api.soundFontLoadStatus.on((args) => {
-                    const p = Math.floor((args.loaded / args.total) * 100);
-                    document.getElementById('progress-fill').style.width = p + '%';
-                    status.innerText = `DOWNLOADING SOUNDS: ${p}%`;
-                });
-
-                api.soundFontLoaded.on(() => {
-                    status.innerText = "READY!";
-                    setTimeout(() => { document.getElementById('loading').style.display = 'none'; }, 500);
-                });
-
-                // Fail-safe (на случай если файл слишком тяжелый или ошибка сети)
-                setTimeout(() => {
-                    if(document.getElementById('loading').style.display !== 'none') {
-                        document.getElementById('loading').style.display = 'none';
-                    }
-                }, 8000);
-
-                setupEvents();
-
-            } catch (e) {
-                status.innerText = "INITIALIZATION FAILED";
-                console.error(e);
+        document.getElementById('file-input').onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('file-name').innerText = file.name.toUpperCase();
+                document.getElementById('viewer-placeholder').innerText = "FILE DETECTED";
+                if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
             }
-        }
-
-        function handlePlay() {
-            // Критично для iOS (iPhone)
-            if (api && api.player.host && api.player.host.audioContext) {
-                api.player.host.audioContext.resume();
-            }
-            api.playPause();
-        }
-
-        function setupEvents() {
-            api.scoreLoaded.on((s) => {
-                const tl = document.getElementById('trackList');
-                tl.innerHTML = s.tracks.map((t, i) => `<option value="${i}">${t.name || 'Track '+(i+1)}</option>`).join('');
-                api.renderTracks([s.tracks[0]]);
-            });
-
-            api.playerStateChanged.on(() => {
-                document.getElementById('playBtn').innerText = api.playerState === 1 ? "⏸" : "▶";
-            });
-
-            document.getElementById('tempoRange').oninput = (e) => {
-                api.playbackSpeed = parseFloat(e.target.value);
-            };
-
-            document.getElementById('trackList').onchange = (e) => {
-                api.renderTracks([api.score.tracks[parseInt(e.target.value)]]);
-            };
-        }
-
-        async function openFile() {
-            const input = document.getElementById('fileInput');
-            input.value = ''; 
-            input.onchange = async (e) => {
-                const file = e.target.files[0];
-                if (!file || !api) return;
-                
-                document.getElementById('loading').style.display = 'flex';
-                document.getElementById('status').innerText = "RENDERING TAB...";
-
-                try {
-                    const buffer = await file.arrayBuffer();
-                    api.load(new Uint8Array(buffer));
-                    api.renderFinished.on(() => {
-                        setTimeout(() => {
-                            document.getElementById('loading').style.display = 'none';
-                            api.render(); // Фикс белого экрана на iOS
-                        }, 200);
-                    }, { once: true });
-                } catch (err) {
-                    document.getElementById('loading').style.display = 'none';
-                    alert("INVALID GP FILE");
-                }
-            };
-            input.click();
-        }
-
-        function toggleFretboard() {
-            const f = document.getElementById('alphaTab-fretboard');
-            f.style.display = f.style.display === 'block' ? 'none' : 'block';
-            api.render();
-        }
-
-        function toggleMetro() {
-            if(!api) return;
-            isMetro = !isMetro;
-            api.settings.player.metronomeVolume = isMetro ? 1 : 0;
-            api.updateSettings();
-            document.getElementById('metroBtn').style.color = isMetro ? 'var(--accent)' : '#fff';
-            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-        }
+        };
     </script>
 </body>
 </html>
+
