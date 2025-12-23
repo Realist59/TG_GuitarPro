@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GP Player</title>
+    <title>TG Guitar Player</title>
+    <!-- Telegram Web App Script -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.3.0/dist/alphaTab.js"></script>
+    <!-- AlphaTab Script -->
+    <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.7.1/dist/alphaTab.js"></script>
     <style>
         :root { 
-            --bg: #ffffff; --txt: #222222; --btn: #2481cc; --btn-txt: #ffffff; --bar: #ffffff;
+            --bg: #ffffff; --txt: #222222; --btn: #2481cc; --btn-txt: #ffffff; --bar: #f8f8f8; 
         }
         
         html, body { 
@@ -18,60 +20,88 @@
         }
         body { display: flex; flex-direction: column; }
 
+        /* Header with Instrument Selector */
+        .header {
+            background: var(--bar);
+            padding: 10px;
+            padding-top: calc(10px + var(--tg-safe-area-inset-top, 0px));
+            display: flex; align-items: center; gap: 10px;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        #trackList { 
+            flex: 1; padding: 8px; border-radius: 8px; 
+            border: 1px solid var(--btn); font-size: 14px; background: #fff;
+        }
+
         #tab-view { 
             flex: 1; overflow: auto; background: #ffffff; 
             -webkit-overflow-scrolling: touch; 
-            padding-top: var(--tg-safe-area-inset-top, 0px);
         }
 
+        /* Bottom Controls */
         .controls {
-            background: var(--bar); padding: 15px 10px;
+            background: var(--bar);
+            padding: 15px 10px;
             padding-bottom: calc(15px + var(--tg-safe-area-inset-bottom, 0px));
-            display: flex; justify-content: center; align-items: center; gap: 15px;
-            border-top: 1px solid rgba(0,0,0,0.1); box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 10;
+            display: flex; justify-content: center; align-items: center; gap: 20px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            z-index: 10;
         }
 
         .btn-main {
-            background: var(--btn); color: var(--btn-txt); border: none; border-radius: 12px;
-            padding: 10px 15px; font-size: 14px; font-weight: 600; cursor: pointer;
-            display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 80px;
+            background: var(--btn); color: var(--btn-txt);
+            border: none; border-radius: 12px; padding: 10px;
+            min-width: 80px; font-weight: 600; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            transition: opacity 0.2s;
         }
+        .btn-main:active { opacity: 0.7; }
+        .btn-main span:last-child { font-size: 10px; text-transform: uppercase; }
 
+        /* Landscape Mode (3x smaller) */
         @media (orientation: landscape) {
-            .controls { padding: 5px 10px; padding-bottom: var(--tg-safe-area-inset-bottom, 5px); gap: 40px; }
-            .btn-main { min-width: 50px; padding: 5px 10px; }
+            .controls { padding: 5px; gap: 30px; }
+            .btn-main { min-width: 60px; padding: 5px; }
             .btn-main span:last-child { display: none; }
+            .header { padding: 5px; padding-top: 5px; }
         }
 
+        /* Loading Overlay */
         #loading { 
             position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
-            background: rgba(255,255,255,0.9); display: none; 
-            flex-direction: column; align-items: center; justify-content: center; z-index: 1000; 
+            background: #ffffff; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; z-index: 1000; 
         }
-
         .metronome-active { background: #e74c3c !important; }
-        
-        /* Highlight for the current playback note */
-        .at-cursor-bar { fill: rgba(36, 129, 204, 0.2); }
-        .at-selection { fill: rgba(36, 129, 204, 0.1); }
+        .at-cursor-bar { fill: rgba(36, 129, 204, 0.15); }
     </style>
 </head>
 <body>
-    <div id="loading">⌛ <span id="txtLoad">Loading...</span></div>
+
+    <div id="loading">
+        <div style="font-size: 40px; margin-bottom: 20px;">🎸</div>
+        <div id="status">Initializing...</div>
+    </div>
+
+    <div class="header">
+        <button onclick="document.getElementById('fileInput').click()" style="background:none; border:none; font-size:24px; cursor:pointer;">📁</button>
+        <select id="trackList"><option>No file loaded</option></select>
+    </div>
 
     <div id="tab-view">
         <div id="alphaTab"></div>
     </div>
 
     <div class="controls">
-        <button class="btn-main" id="openBtn">
-            <span style="font-size: 20px;">📁</span><span>Open</span>
-        </button>
         <button class="btn-main" id="playBtn">
-            <span id="icoPlay" style="font-size: 24px;">▶</span><span id="txtPlay">Play</span>
+            <span id="icoPlay" style="font-size: 24px;">▶</span>
+            <span id="txtPlay">Play</span>
         </button>
         <button class="btn-main" id="metroBtn">
-            <span style="font-size: 20px;">⏲</span><span>Metro</span>
+            <span style="font-size: 24px;">⏲</span>
+            <span>Metro</span>
         </button>
     </div>
     
@@ -81,82 +111,98 @@
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
-        const L = { play: "Play", pause: "Pause", load: "Loading...", bar: "Bar" };
         const el = document.querySelector('#alphaTab');
-        let metronomeEnabled = false;
-        let lastAnnouncedBar = -1;
+        const status = document.getElementById('status');
+        let lastBar = -1;
+        let metroOn = false;
 
         const api = new alphaTab.AlphaTabApi(el, {
-            importer: { encoding: 'cp1251' },
+            importer: { encoding: 'cp1251' }, // Keep cp1251 for legacy file compatibility
             player: { 
                 enablePlayer: true, 
                 enableMetronome: true, 
-                enableCursor: true, // Включает бегущую полоску
-                soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.3.0/dist/soundfonts/sonivox.sf2' 
+                enableCursor: true,
+                soundFont: './sonivox.sf2' // Local file from your repository
             },
-            display: {
-                layoutMode: 'page', // Можно сменить на 'horizontal', если нужны табы в одну линию
-                autoSize: true
-            }
+            display: { layoutMode: 'page' }
         });
 
-        // Функция озвучки
-        function speakPosition(text) {
+        // Bar voice announcement
+        function speak(text) {
             if ('speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.rate = 1.2;
-                utterance.lang = 'en-US';
-                window.speechSynthesis.speak(utterance);
+                const msg = new SpeechSynthesisUtterance(text);
+                msg.lang = 'en-US';
+                msg.rate = 1.2;
+                window.speechSynthesis.speak(msg);
             }
         }
 
-        function updateUI() {
-            const isPlaying = api.playerState === 1;
-            document.getElementById('txtPlay').innerText = isPlaying ? L.pause : L.play;
-            document.getElementById('icoPlay').innerText = isPlaying ? '⏸' : '▶';
-        }
-
-        // Слежение за позицией плеера
-        api.playerPositionChanged.on((args) => {
-            // Озвучиваем номер такта (Bar) при его смене
-            const currentBar = args.index; 
-            if (currentBar !== lastAnnouncedBar) {
-                lastAnnouncedBar = currentBar;
-                speakPosition(`${L.bar} ${currentBar + 1}`);
-            }
+        // SoundFont Loading Events
+        api.soundFontLoad.on((e) => {
+            const p = Math.floor(e.loaded / e.total * 100);
+            status.innerText = `Loading Sounds: ${p}%`;
         });
 
-        document.getElementById('openBtn').onclick = () => document.getElementById('fileInput').click();
-        
+        api.soundFontLoaded.on(() => {
+            status.innerText = "Ready!";
+            setTimeout(() => document.getElementById('loading').style.display = 'none', 600);
+        });
+
+        // File Loading
         document.getElementById('fileInput').onchange = (e) => {
-            const f = e.target.files[0]; if (!f) return;
+            const f = e.target.files[0]; if(!f) return;
             document.getElementById('loading').style.display = 'flex';
-            const r = new FileReader(); 
+            status.innerText = "Loading File...";
+            const r = new FileReader();
             r.onload = (res) => api.load(new Uint8Array(res.target.result));
             r.readAsArrayBuffer(f);
         };
 
-        document.getElementById('playBtn').onclick = () => {
-            if (api.playerState === 1) api.pause();
-            else api.play();
-        };
-
-        document.getElementById('metroBtn').onclick = function() {
-            metronomeEnabled = !metronomeEnabled;
-            api.settings.player.metronomeVolume = metronomeEnabled ? 1 : 0;
-            api.updateSettings();
-            this.classList.toggle('metronome-active', metronomeEnabled);
-        };
-
-        api.scoreLoaded.on((s) => {
+        // Score Loaded: Build Track List
+        api.scoreLoaded.on((score) => {
             document.getElementById('loading').style.display = 'none';
-            lastAnnouncedBar = -1; // Сброс счетчика при загрузке нового файла
-            api.renderTracks([s.tracks[0]]);
+            const tl = document.getElementById('trackList');
+            tl.innerHTML = '';
+            score.tracks.forEach((t, i) => {
+                const o = document.createElement('option');
+                o.value = i; o.innerText = t.name || `Track ${i+1}`;
+                tl.appendChild(o);
+            });
+            api.renderTracks([score.tracks[0]]);
         });
 
-        api.playerStateChanged.on(() => updateUI());
+        document.getElementById('trackList').onchange = (e) => {
+            api.renderTracks([api.score.tracks[parseInt(e.target.value)]]);
+        };
+
+        // Cursor tracking and bar voice announcement
+        api.playerPositionChanged.on((args) => {
+            const currentBar = args.index + 1;
+            if(currentBar !== lastBar) {
+                lastBar = currentBar;
+                speak(`Bar ${currentBar}`);
+            }
+        });
+
+        // Player Controls
+        document.getElementById('playBtn').onclick = () => api.playPause();
+
+        document.getElementById('metroBtn').onclick = function() {
+            metroOn = !metroOn;
+            api.settings.player.metronomeVolume = metroOn ? 1 : 0;
+            api.updateSettings();
+            this.classList.toggle('metronome-active', metroOn);
+        };
+
+        api.playerStateChanged.on(() => {
+            const isPlaying = api.playerState === 1;
+            document.getElementById('icoPlay').innerText = isPlaying ? "⏸" : "▶";
+            document.getElementById('txtPlay').innerText = isPlaying ? "Pause" : "Play";
+        });
+
         window.addEventListener('resize', () => api.render());
     </script>
 </body>
 </html>
+
 
