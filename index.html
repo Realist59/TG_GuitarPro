@@ -25,10 +25,17 @@
         #loading {
             position: fixed; inset: 0; background: var(--bg);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 1000;
+            z-index: 1000; text-align: center;
         }
 
-        /* Bar/Measure visualizer at the very top */
+        /* Progress Bar */
+        #progress-wrap {
+            width: 220px; height: 10px; background: #222; 
+            border-radius: 5px; margin: 20px 0 10px 0; overflow: hidden;
+            display: none; border: 1px solid #333;
+        }
+        #progress-fill { width: 0%; height: 100%; background: var(--accent); transition: width 0.1s linear; }
+
         .measure-bar {
             height: 30px; background: #222; display: flex; align-items: center;
             padding: 0 10px; gap: 5px; overflow: hidden; border-bottom: 1px solid #333;
@@ -36,27 +43,15 @@
         .measure-dot { width: 4px; height: 12px; background: #444; border-radius: 2px; }
         .measure-dot.active { background: var(--accent); height: 18px; }
 
-        /* Tabs Container */
         #tab-view { flex: 1; overflow: auto; background: #fff; position: relative; }
-
-        /* Fretboard Section */
         #alphaTab-fretboard { height: 120px; background: #1a1a1a; border-top: 2px solid #333; }
 
         /* --- PORTRAIT MODE --- */
         @media (orientation: portrait) {
             body { display: flex; flex-direction: column; }
             .side-bar { display: none; }
-            
-            .header {
-                height: 50px; background: var(--bar-bg); display: flex; align-items: center;
-                justify-content: space-between; padding: 0 15px;
-            }
-            
-            .footer {
-                background: var(--bar-bg); padding: 10px 15px;
-                padding-bottom: calc(10px + var(--tg-safe-area-inset-bottom, 0px));
-            }
-            
+            .header { height: 50px; background: var(--bar-bg); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; }
+            .footer { background: var(--bar-bg); padding: 10px 15px; padding-bottom: calc(10px + var(--tg-safe-area-inset-bottom, 0px)); }
             .controls-main { display: flex; justify-content: space-around; align-items: center; margin-bottom: 15px; }
             .tempo-slider-container { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
             .tempo-slider-container input { flex: 1; accent-color: var(--accent); }
@@ -65,35 +60,18 @@
 
         /* --- LANDSCAPE MODE --- */
         @media (orientation: landscape) {
-            body { 
-                display: grid; 
-                grid-template-columns: 60px 1fr 60px; 
-                grid-template-rows: 30px 1fr 100px; 
-                height: 100vh; 
-            }
+            body { display: grid; grid-template-columns: 60px 1fr 60px; grid-template-rows: 30px 1fr 100px; height: 100vh; }
             .header, .footer, .tempo-slider-container { display: none; }
-            
             .measure-bar { grid-column: 1 / 4; }
             #tab-view { grid-column: 2 / 3; grid-row: 2 / 3; }
             #alphaTab-fretboard { grid-column: 1 / 4; grid-row: 3 / 4; height: 100px; }
-
-            .side-bar {
-                display: flex; flex-direction: column; align-items: center;
-                justify-content: space-around; background: var(--bar-bg); padding: 10px 0;
-            }
+            .side-bar { display: flex; flex-direction: column; align-items: center; justify-content: space-around; background: var(--bar-bg); padding: 10px 0; }
             .side-bar.left { grid-column: 1 / 2; grid-row: 2 / 3; border-right: 1px solid #333; }
             .side-bar.right { grid-column: 3 / 4; grid-row: 2 / 3; border-left: 1px solid #333; }
         }
 
-        /* Icon Buttons */
-        .icon-btn {
-            background: none; border: none; color: var(--text); font-size: 24px;
-            cursor: pointer; padding: 8px; border-radius: 8px; transition: 0.2s;
-        }
+        .icon-btn { background: none; border: none; color: var(--text); font-size: 24px; cursor: pointer; padding: 8px; border-radius: 8px; transition: 0.2s; }
         .icon-btn:active { color: var(--accent); opacity: 0.7; }
-        .icon-btn.active { color: var(--accent); }
-
-        /* AlphaTab Cursor Styling */
         .at-cursor-bar { background: rgba(36, 129, 204, 0.2) !important; border-left: 2px solid var(--accent) !important; }
     </style>
 </head>
@@ -101,14 +79,16 @@
 
     <div id="loading">
         <div style="font-size: 50px;">🎸</div>
-        <div id="status">Ready to load</div>
+        <div id="status">Ready?</div>
+        
+        <div id="progress-wrap"><div id="progress-fill"></div></div>
+        <div id="percent" style="font-weight: bold; color: #2481cc; margin-top: 5px;"></div>
+        
         <button id="startBtn" style="margin-top:20px; padding:12px 35px; border-radius:25px; border:none; background:var(--accent); color:#fff; font-weight:bold; cursor:pointer;">START APP</button>
     </div>
 
-    <!-- Top Measure Bar -->
     <div class="measure-bar" id="measureDots"></div>
 
-    <!-- Header (Portrait Only) -->
     <div class="header">
         <button class="icon-btn" onclick="openFile()">📁</button>
         <select id="trackList" style="background:none; border:none; color:#fff; font-weight:bold; max-width: 150px;"></select>
@@ -118,33 +98,26 @@
         </div>
     </div>
 
-    <!-- Left Sidebar (Landscape Only) -->
     <div class="side-bar left">
         <button class="icon-btn" onclick="openFile()">📁</button>
-        <button class="icon-btn">☰</button> <!-- Mixer -->
+        <button class="icon-btn">☰</button>
         <button class="icon-btn" onclick="toggleFretboard()">🎸</button>
         <button class="icon-btn">⚙</button>
         <button class="icon-btn">ⓘ</button>
     </div>
 
-    <!-- Center Tab View -->
-    <div id="tab-view">
-        <div id="alphaTab"></div>
-    </div>
+    <div id="tab-view"><div id="alphaTab"></div></div>
 
-    <!-- Right Sidebar (Landscape Only) -->
     <div class="side-bar right">
-        <button class="icon-btn" id="playBtnL" onclick="api.playPause()">▶</button>
+        <button class="icon-btn" id="playBtnL" onclick="handlePlay()">▶</button>
         <button class="icon-btn">⏮</button>
         <button class="icon-btn">⏭</button>
-        <button class="icon-btn">♩</button> <!-- Tempo -->
+        <button class="icon-btn">♩</button>
         <button class="icon-btn" id="metroBtnL" onclick="toggleMetro()">⏳</button>
     </div>
 
-    <!-- Virtual Fretboard -->
     <div id="alphaTab-fretboard"></div>
 
-    <!-- Footer (Portrait Only) -->
     <div class="footer">
         <div class="filename" id="fileNameDisplay">No file selected</div>
         <div class="tempo-slider-container">
@@ -154,7 +127,7 @@
         </div>
         <div class="controls-main">
             <button class="icon-btn">⏮</button>
-            <button class="icon-btn" id="playBtnP" onclick="api.playPause()" style="font-size: 44px;">▶</button>
+            <button class="icon-btn" id="playBtnP" onclick="handlePlay()" style="font-size: 44px;">▶</button>
             <button class="icon-btn">⏭</button>
         </div>
         <div style="display:flex; justify-content: space-around; opacity: 0.6;">
@@ -164,18 +137,22 @@
         </div>
     </div>
 
-    <input type="file" id="fileInput" accept=".gp,.gp3,.gp4,.gp5,.gpx" style="display:none">
-
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
         const el = document.querySelector('#alphaTab');
         const fretEl = document.querySelector('#alphaTab-fretboard');
+        const status = document.getElementById('status');
+        const progressFill = document.getElementById('progress-fill');
+        const percentText = document.getElementById('percent');
+        const loader = document.getElementById('loading');
+
         let api = null;
         let isMetro = false;
+        let lastBar = -1;
 
-        // Create Measure Dots
+        // Generate Measure Dots
         const measureDots = document.getElementById('measureDots');
         for(let i=0; i<60; i++) {
             const dot = document.createElement('div');
@@ -183,28 +160,68 @@
             measureDots.appendChild(dot);
         }
 
-        async function initApp(sf2Url) {
+        // --- PRECISE DOWNLOAD LOGIC ---
+        async function downloadAndInit() {
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('progress-wrap').style.display = 'block';
+            status.innerText = "Downloading Sounds...";
+
+            const url = 'https://raw.githubusercontent.com/wrightflyer/SF2_SoundFonts/master/Chaos%20Bank%20V1.9%20(12Mb).sf2';
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error();
+                
+                const reader = response.body.getReader();
+                const total = +response.headers.get('Content-Length');
+                let loaded = 0;
+                let chunks = [];
+
+                while(true) {
+                    const {done, value} = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                    loaded += value.length;
+                    
+                    const p = Math.floor((loaded / total) * 100);
+                    progressFill.style.width = p + '%';
+                    percentText.innerText = p + '%';
+                }
+
+                status.innerText = "Initializing Engine...";
+                const blob = new Blob(chunks);
+                const sf2Url = URL.createObjectURL(blob);
+                
+                initAlphaTab(sf2Url);
+
+            } catch (e) {
+                status.innerText = "Download Failed. Refresh.";
+            }
+        }
+
+        function initAlphaTab(sf2Url) {
             api = new alphaTab.AlphaTabApi(el, {
                 importer: { encoding: 'cp1251' },
-                player: { 
-                    enablePlayer: true, 
-                    enableCursor: true, 
-                    soundFont: sf2Url 
-                },
-                display: { 
-                    layoutMode: 'page',
-                    scrollElement: '#tab-view'
-                }
+                player: { enablePlayer: true, enableCursor: true, soundFont: sf2Url },
+                display: { layoutMode: 'page', scrollElement: '#tab-view' }
             });
 
-            // Initialize Fretboard
             new alphaTab.gui.backings.Fretboard(fretEl, api);
 
             api.soundFontLoaded.on(() => {
-                document.getElementById('loading').style.display = 'none';
+                status.innerText = "Ready!";
+                setTimeout(() => { loader.style.display = 'none'; }, 500);
             });
 
+            // Force hide if stuck
+            setTimeout(() => { if(loader.style.display !== 'none') loader.style.display = 'none'; }, 8000);
+
             setupEvents();
+        }
+
+        function handlePlay() {
+            if (api.player.host && api.player.host.audioContext) api.player.host.audioContext.resume();
+            api.playPause();
         }
 
         function setupEvents() {
@@ -232,9 +249,22 @@
             };
 
             api.playerPositionChanged.on((args) => {
+                if(api.playerState !== 1) return;
                 const dots = measureDots.querySelectorAll('.measure-dot');
                 dots.forEach(d => d.classList.remove('active'));
                 if(dots[args.index]) dots[args.index].classList.add('active');
+
+                // Voice Announcer
+                const bar = args.index + 1;
+                if(bar !== lastBar) {
+                    lastBar = bar;
+                    if ('speechSynthesis' in window) {
+                        window.speechSynthesis.cancel();
+                        const msg = new SpeechSynthesisUtterance("Bar " + bar);
+                        msg.lang = 'en-US'; msg.rate = 1.4;
+                        window.speechSynthesis.speak(msg);
+                    }
+                }
             });
 
             document.getElementById('trackList').onchange = (e) => {
@@ -258,8 +288,7 @@
             isMetro = !isMetro;
             api.settings.player.metronomeVolume = isMetro ? 1 : 0;
             api.updateSettings();
-            document.getElementById('metroBtnP').classList.toggle('active', isMetro);
-            document.getElementById('metroBtnL').classList.toggle('active', isMetro);
+            document.getElementById('metroBtnP').style.color = isMetro ? '#2481cc' : '#fff';
         }
 
         function toggleFretboard() {
@@ -268,10 +297,7 @@
             api.render();
         }
 
-        document.getElementById('startBtn').onclick = () => {
-            document.getElementById('status').innerText = "Initializing Engine...";
-            initApp('https://raw.githubusercontent.com/wrightflyer/SF2_SoundFonts/master/Chaos%20Bank%20V1.9%20(12Mb).sf2');
-        };
+        document.getElementById('startBtn').onclick = downloadAndInit;
     </script>
 </body>
 </html>
