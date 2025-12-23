@@ -3,201 +3,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TG Guitar Player</title>
+    <title>GP Pro Player TWA</title>
+    <!-- External Scripts from Authors -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.7.1/dist/alphaTab.js"></script>
     <style>
-        :root { --bg: #ffffff; --txt: #222222; --btn: #2481cc; --btn-txt: #ffffff; --bar: #f8f8f8; }
-        html, body { margin: 0; padding: 0; width: 100%; height: 100dvh; overflow: hidden; background: var(--bg); color: var(--txt); font-family: -apple-system, sans-serif; }
-        body { display: flex; flex-direction: column; }
+        :root {
+            --bg: var(--tg-theme-bg-color, #ffffff);
+            --text: var(--tg-theme-text-color, #222222);
+            --btn: var(--tg-theme-button-color, #2481cc);
+            --btn-txt: var(--tg-theme-button-text-color, #ffffff);
+            --sec-bg: var(--tg-theme-secondary-bg-color, #f5f5f5);
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0; padding: 0; background: var(--bg); color: var(--text);
+            font-family: -apple-system, system-ui, sans-serif;
+            display: flex; flex-direction: column; height: 100dvh; overflow: hidden;
+        }
+        header {
+            background: var(--sec-bg); padding: 10px;
+            padding-top: calc(10px + var(--tg-safe-area-inset-top, 0px));
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            display: flex; align-items: center; gap: 10px; z-index: 10;
+        }
+        #trackList { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; }
+        #tab-view { flex: 1; overflow: auto; background: #fff; position: relative; }
         
-        .header { background: var(--bar); padding: 10px; padding-top: calc(10px + var(--tg-safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(0,0,0,0.1); z-index: 10; }
-        #trackList { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--btn); font-size: 14px; background: #fff; }
-        
-        /* Container for tabs - MUST have position relative for the cursor */
-        #tab-view { flex: 1; overflow: auto; background: #ffffff; -webkit-overflow-scrolling: touch; position: relative; }
-        
-        .controls { background: var(--bar); padding: 15px 10px; padding-bottom: calc(15px + var(--tg-safe-area-inset-bottom, 0px)); display: flex; justify-content: center; align-items: center; gap: 20px; border-top: 1px solid rgba(0,0,0,0.1); z-index: 10; }
-        .btn-main { background: var(--btn); color: var(--btn-txt); border: none; border-radius: 12px; padding: 10px; min-width: 80px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-        
-        #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; text-align: center; padding: 40px; }
-        #progress-container { width: 100%; max-width: 250px; height: 12px; background: #e0e0e0; border-radius: 6px; margin: 20px 0 10px 0; overflow: hidden; display: none; }
-        #progress-bar { width: 0%; height: 100%; background: var(--btn); transition: width 0.1s linear; }
-        .start-btn { padding: 15px 30px; font-size: 18px; font-weight: bold; background: #2481cc; color: white; border: none; border-radius: 12px; cursor: pointer; }
-
-        /* BRIGHT BLUE CURSOR STYLING */
+        /* Cursor Styling */
         .at-cursor-bar { 
-            background: rgba(36, 129, 204, 0.3) !important; 
-            border-left: 3px solid #2481cc !important;
-            box-sizing: border-box !important;
+            background: rgba(36, 129, 204, 0.25) !important; 
+            border-left: 2px solid #2481cc !important;
             z-index: 5;
-            pointer-events: none;
         }
 
-        @media (orientation: landscape) { .controls { padding: 5px; gap: 40px; } .btn-main { min-width: 50px; padding: 5px; } .btn-main span:last-child { display: none; } }
+        .controls {
+            background: var(--sec-bg); padding: 15px;
+            padding-bottom: calc(15px + var(--tg-safe-area-inset-bottom, 0px));
+            display: grid; grid-template-columns: 1fr 2fr 1fr; align-items: center; gap: 15px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+        }
+        .btn-main {
+            width: 50px; height: 50px; border-radius: 50%;
+            background: var(--btn); color: var(--btn-txt);
+            border: none; font-size: 24px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .tempo-container { text-align: center; }
+        .tempo-container input { width: 100%; accent-color: var(--btn); }
+        .tempo-label { font-size: 10px; color: #888; margin-top: 4px; display: block; }
+
+        /* Loading Screen */
+        #loader {
+            position: fixed; inset: 0; background: var(--bg);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 1000; text-align: center; padding: 30px;
+        }
+        .progress-w { width: 200px; height: 8px; background: #eee; border-radius: 4px; margin: 20px 0; overflow: hidden; }
+        #progress-f { width: 0%; height: 100%; background: var(--btn); transition: width 0.1s; }
+        .start-btn { padding: 12px 30px; border-radius: 10px; background: var(--btn); color: var(--btn-txt); border: none; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="loading">
-        <div style="font-size: 50px; margin-bottom: 10px;">🎸</div>
-        <div id="status">Ready?</div>
-        <button id="startBtn" class="start-btn" style="margin-top: 20px;">START APP</button>
-        <div id="progress-container"><div id="progress-bar"></div></div>
-        <div id="percent-text" style="margin-top: 10px; font-weight: bold; color: #2481cc;"></div>
+    <div id="loader">
+        <div style="font-size: 50px;">🎸</div>
+        <h3 id="status">GP Pro Player</h3>
+        <button id="startBtn" class="start-btn">START APP</button>
+        <div id="prog-node" style="display:none">
+            <div class="progress-w"><div id="progress-f"></div></div>
+            <div id="perc">0%</div>
+        </div>
     </div>
 
-    <div class="header">
-        <button onclick="document.getElementById('fileInput').click()" style="background:none; border:none; font-size:24px; cursor:pointer;">📁</button>
+    <header>
+        <button onclick="document.getElementById('fileInput').click()" style="background:none; border:none; font-size:24px;">📁</button>
         <select id="trackList"><option>No track</option></select>
-    </div>
+    </header>
 
-    <div id="tab-view">
-        <div id="alphaTab"></div>
-    </div>
+    <div id="tab-view"><div id="alphaTab"></div></div>
 
     <div class="controls">
-        <button class="btn-main" id="playBtn"><span id="icoPlay" style="font-size: 24px;">▶</span><span>Play</span></button>
-        <button class="btn-main" id="metroBtn"><span style="font-size: 24px;">⏲</span><span>Metro</span></button>
+        <button class="btn-main" id="playBtn">▶</button>
+        <div class="tempo-container">
+            <input type="range" id="tempo" min="0.25" max="2" step="0.25" value="1">
+            <span class="tempo-label" id="tempoValue">Speed: 100%</span>
+        </div>
+        <button id="metroBtn" style="background:none; border:1px solid #ccc; border-radius:8px; padding:5px; font-size:10px;">METRO: OFF</button>
     </div>
-    
+
     <input type="file" id="fileInput" accept=".gp,.gp3,.gp4,.gp5,.gpx" style="display:none">
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
+        const loader = document.getElementById('loader');
         const status = document.getElementById('status');
-        const loader = document.getElementById('loading');
         const startBtn = document.getElementById('startBtn');
-        const pContainer = document.getElementById('progress-container');
-        const pBar = document.getElementById('progress-bar');
-        const pText = document.getElementById('percent-text');
+        const progressF = document.getElementById('progress-f');
+        const percText = document.getElementById('perc');
 
         let api = null;
         let lastBar = -1;
 
-        async function loadSoundFont(url) {
+        // Directly use the author's Raw GitHub link for Chaos Bank
+        const soundfontUrl = 'https://raw.githubusercontent.com/wrightflyer/SF2_SoundFonts/master/Chaos%20Bank%20V1.9%20(12Mb).sf2';
+
+        async function downloadEngine() {
             startBtn.style.display = 'none';
-            pContainer.style.display = 'block';
-            status.innerText = "Downloading HQ Engine...";
+            document.getElementById('prog-node').style.display = 'block';
+            status.innerText = "Downloading Sound Engine...";
 
             try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error();
+                const response = await fetch(soundfontUrl);
                 const reader = response.body.getReader();
-                const contentLength = +response.headers.get('Content-Length');
-                let receivedLength = 0;
+                const total = +response.headers.get('Content-Length');
+                let loaded = 0;
                 let chunks = [];
 
                 while(true) {
                     const {done, value} = await reader.read();
                     if (done) break;
                     chunks.push(value);
-                    receivedLength += value.length;
-                    if (contentLength) {
-                        let p = Math.floor((receivedLength / contentLength) * 100);
-                        pBar.style.width = p + '%';
-                        pText.innerText = p + '%';
-                    }
+                    loaded += value.length;
+                    let p = Math.floor((loaded / total) * 100);
+                    progressF.style.width = p + '%';
+                    percText.innerText = p + '%';
                 }
-                
-                status.innerText = "Initializing...";
                 const blob = new Blob(chunks, { type: 'application/octet-stream' });
                 initAlphaTab(URL.createObjectURL(blob));
-                
-                setTimeout(() => { if (loader.style.display !== 'none') loader.style.display = 'none'; }, 3000);
-            } catch (err) {
-                status.innerText = "Failed to load audio. Please Refresh.";
+            } catch (e) {
+                status.innerText = "Download Error. Please Refresh.";
             }
         }
 
-        function initAlphaTab(sf2Url) {
+        function initAlphaTab(sf2) {
             api = new alphaTab.AlphaTabApi(document.querySelector('#alphaTab'), {
                 importer: { encoding: 'cp1251' },
-                player: { 
-                    enablePlayer: true, 
-                    enableMetronome: true, 
-                    enableCursor: true, 
-                    soundFont: sf2Url 
-                },
-                display: { 
-                    layoutMode: 'page',
-                    scrollElement: '#tab-view' // CRITICAL: Tells AlphaTab where to draw the cursor
-                }
+                player: { enablePlayer: true, enableCursor: true, soundFont: sf2 },
+                display: { layoutMode: 'page', scrollElement: '#tab-view' }
             });
 
-            api.soundFontLoaded.on(() => { loader.style.display = 'none'; });
-            setupHandlers();
+            api.soundFontLoaded.on(() => {
+                loader.style.display = 'none';
+            });
+
+            setupLogic();
         }
 
-        startBtn.onclick = () => {
-            loadSoundFont('https://raw.githubusercontent.com/wrightflyer/SF2_SoundFonts/master/Chaos%20Bank%20V1.9%20(12Mb).sf2');
-        };
-
-        function speak(text) {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); 
-                const msg = new SpeechSynthesisUtterance(text);
-                msg.lang = 'en-US';
-                msg.rate = 1.3;
-                window.speechSynthesis.speak(msg);
-            }
-        }
-
-        function setupHandlers() {
+        function setupLogic() {
+            // File Handling
             document.getElementById('fileInput').onchange = (e) => {
                 const f = e.target.files[0]; if(!f) return;
                 loader.style.display = 'flex';
                 status.innerText = "Loading File...";
-                const r = new FileReader();
-                r.onload = (res) => { 
-                    api.load(new Uint8Array(res.target.result)); 
-                    lastBar = -1; 
-                };
-                r.readAsArrayBuffer(f);
+                api.load(f);
             };
 
-            api.scoreLoaded.on((score) => {
+            api.scoreLoaded.on((s) => {
                 loader.style.display = 'none';
                 const tl = document.getElementById('trackList');
                 tl.innerHTML = '';
-                score.tracks.forEach((t, i) => {
+                s.tracks.forEach((t, i) => {
                     const o = document.createElement('option');
                     o.value = i; o.innerText = t.name || `Track ${i+1}`;
                     tl.appendChild(o);
                 });
-                api.renderTracks([score.tracks[0]]);
+                api.renderTracks([s.tracks[0]]);
             });
 
-            api.playerPositionChanged.on((args) => {
-                if (api.playerState !== 1) return;
-                const currentBar = args.index + 1;
-                if (currentBar !== lastBar && currentBar > 0) {
-                    lastBar = currentBar;
-                    speak("Bar " + currentBar);
-                }
-            });
-
+            // Playback & Controls
             document.getElementById('playBtn').onclick = () => {
-                // Audio Wake-up for iPhone
                 if (api.player.host && api.player.host.audioContext) api.player.host.audioContext.resume();
                 api.playPause();
+            };
+
+            api.playerStateChanged.on(() => {
+                document.getElementById('playBtn').innerText = api.playerState === 1 ? "⏸" : "▶";
+            });
+
+            document.getElementById('tempo').oninput = (e) => {
+                const speed = parseFloat(e.target.value);
+                api.playbackSpeed = speed;
+                document.getElementById('tempoValue').innerText = `Speed: ${Math.round(speed * 100)}%`;
             };
 
             document.getElementById('metroBtn').onclick = function() {
                 const vol = api.settings.player.metronomeVolume > 0 ? 0 : 1;
                 api.settings.player.metronomeVolume = vol;
                 api.updateSettings();
-                this.style.background = vol > 0 ? '#e74c3c' : '#2481cc';
+                this.innerText = vol > 0 ? "METRO: ON" : "METRO: OFF";
             };
 
-            document.getElementById('trackList').onchange = (e) => api.renderTracks([api.score.tracks[parseInt(e.target.value)]]);
-            api.playerStateChanged.on(() => { document.getElementById('icoPlay').innerText = api.playerState === 1 ? "⏸" : "▶"; });
-            
-            // Re-render cursor on window resize
+            // Bar Announcement (Speech)
+            api.playerPositionChanged.on((args) => {
+                if (api.playerState !== 1) return;
+                const bar = args.index + 1;
+                if (bar !== lastBar) {
+                    lastBar = bar;
+                    if ('speechSynthesis' in window) {
+                        window.speechSynthesis.cancel();
+                        const m = new SpeechSynthesisUtterance("Bar " + bar);
+                        m.lang = 'en-US'; m.rate = 1.4;
+                        window.speechSynthesis.speak(m);
+                    }
+                }
+            });
+
+            document.getElementById('trackList').onchange = (e) => {
+                api.renderTracks([api.score.tracks[parseInt(e.target.value)]]);
+            };
+
             window.addEventListener('resize', () => api.render());
         }
+
+        startBtn.onclick = downloadEngine;
     </script>
 </body>
 </html>
