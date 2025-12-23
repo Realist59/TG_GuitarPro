@@ -17,7 +17,6 @@
         .btn-main { width: 65px; height: 65px; border-radius: 50%; background: var(--accent); font-size: 24px; }
         #file-input { display: none; }
         select { background: #222; color: #fff; border: none; padding: 5px; border-radius: 5px; width: 110px; font-size: 13px; }
-        #fretboard { height: 100px; background: #1a1a1a; display: none; border-top: 1px solid #333; }
     </style>
 </head>
 <body>
@@ -34,7 +33,7 @@
     </div>
 
     <div id="tab-view"><div id="alphaTab"></div></div>
-    <div id="fretboard"></div>
+    <div id="alphaTab-fretboard" style="height:100px; background:#1a1a1a; display:none;"></div>
 
     <div class="footer">
         <input type="range" id="tempo" min="0.25" max="2" step="0.1" value="1" style="width:70px;">
@@ -55,48 +54,38 @@
         function initApp() {
             const status = document.getElementById('status');
             const btn = document.getElementById('start-btn');
-            
             btn.style.display = 'none';
-            status.innerText = "INITIALIZING ENGINE...";
+            status.innerText = "INITIALIZING...";
 
             try {
                 const el = document.getElementById('alphaTab');
                 api = new alphaTab.AlphaTabApi(el, {
-                    player: { 
-                        enablePlayer: true, 
-                        soundFont: sf2,
-                        enableCursor: true 
-                    },
-                    display: { 
-                        layoutMode: 'fluid'
-                    }
+                    player: { enablePlayer: true, soundFont: sf2 },
+                    display: { layoutMode: 'fluid' }
                 });
 
-                new alphaTab.gui.backings.Fretboard(document.getElementById('fretboard'), api);
+                // Correct Fretboard initialization for 1.7.x
+                const fretboardEl = document.getElementById('alphaTab-fretboard');
+                new alphaTab.gui.Fretboard(fretboardEl, api);
 
                 api.soundFontLoadStatus.on((args) => {
                     const p = Math.floor((args.loaded / args.total) * 100);
-                    status.innerText = "LOADING SOUNDS: " + p + "%";
+                    status.innerText = "SOUNDS: " + p + "%";
                 });
 
                 api.soundFontLoaded.on(() => {
                     document.getElementById('loading').style.display = 'none';
                 });
 
-                // Force open if soundfont fails
                 setTimeout(() => {
-                    const loader = document.getElementById('loading');
-                    if(loader.style.display !== 'none') {
-                        loader.style.display = 'none';
-                        console.log("Forced start");
+                    if(document.getElementById('loading').style.display !== 'none') {
+                        document.getElementById('loading').style.display = 'none';
                     }
                 }, 5000);
 
                 setupEvents();
-
             } catch (e) {
-                status.innerText = "ERROR: " + e.message;
-                btn.style.display = 'block';
+                status.innerText = "ERR: " + e.message;
             }
         }
 
@@ -129,12 +118,12 @@
         }
 
         function handlePlay() {
-            if (api && api.player.host && api.player.host.audioContext) api.player.host.audioContext.resume();
+            if (api?.player?.host?.audioContext) api.player.host.audioContext.resume();
             if (api) api.playPause();
         }
 
         function toggleFret() {
-            const f = document.getElementById('fretboard');
+            const f = document.getElementById('alphaTab-fretboard');
             f.style.display = f.style.display === 'block' ? 'none' : 'block';
             if (api) api.render();
         }
