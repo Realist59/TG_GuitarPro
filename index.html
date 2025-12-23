@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>GP Player</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.7.1/dist/alphaTab.js"></script>
+    <script src="https://github.com/Realist59/TG_GuitarPro/edit/main/index.html"></script>
     <style>
         :root { --bg: #000; --bar: #111; --accent: #2481cc; --text: #fff; }
         body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
@@ -33,7 +33,7 @@
     </div>
 
     <div id="tab-view"><div id="alphaTab"></div></div>
-    <div id="alphaTab-fretboard" style="height:100px; background:#1a1a1a; display:none;"></div>
+    <div id="fretboard" style="height:100px; background:#1a1a1a; display:none;"></div>
 
     <div class="footer">
         <input type="range" id="tempo" min="0.25" max="2" step="0.1" value="1" style="width:70px;">
@@ -53,24 +53,13 @@
 
         function initApp() {
             const status = document.getElementById('status');
-            const btn = document.getElementById('start-btn');
-            btn.style.display = 'none';
+            document.getElementById('start-btn').style.display = 'none';
             status.innerText = "INITIALIZING...";
 
             try {
-                const el = document.getElementById('alphaTab');
-                api = new alphaTab.AlphaTabApi(el, {
+                api = new alphaTab.AlphaTabApi(document.getElementById('alphaTab'), {
                     player: { enablePlayer: true, soundFont: sf2 },
                     display: { layoutMode: 'fluid' }
-                });
-
-                // Correct Fretboard initialization for 1.7.x
-                const fretboardEl = document.getElementById('alphaTab-fretboard');
-                new alphaTab.gui.Fretboard(fretboardEl, api);
-
-                api.soundFontLoadStatus.on((args) => {
-                    const p = Math.floor((args.loaded / args.total) * 100);
-                    status.innerText = "SOUNDS: " + p + "%";
                 });
 
                 api.soundFontLoaded.on(() => {
@@ -123,7 +112,7 @@
         }
 
         function toggleFret() {
-            const f = document.getElementById('alphaTab-fretboard');
+            const f = document.getElementById('fretboard');
             f.style.display = f.style.display === 'block' ? 'none' : 'block';
             if (api) api.render();
         }
